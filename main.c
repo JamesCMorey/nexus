@@ -5,6 +5,71 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/select.h>
+
+int handle_io(int sfd, fd_set master);
+int get_conn(char *hostname, char *port);
+
+int main(int argc, char *argv[])
+{
+	int sfd;
+	fd_set master;
+
+	if (argc == 3) {
+		sfd = get_conn(argv[1], argv[2]);
+	}
+	else {
+		puts("Usage: ./a.out [destination] [port]");
+		return -1;
+	}
+
+	FD_ZERO(&master);
+	FD_SET(fileno(stdin), &master);
+	FD_SET(sfd, &master);
+
+	while (1) {
+		if (handle_io(sfd, master) < 0) {
+			break;
+		}
+	}
+
+	close(sfd);
+	return 0;
+}
+
+int handle_io(int sfd, fd_set master)
+{
+	char read[4096];
+	int bytes_received;
+	fd_set tmp;
+
+
+	tmp = master;
+
+	if (select(sfd + 1, &tmp, 0, 0, 0) < 0) {
+		perror("select failed");
+		return -1;
+	}
+
+	// get input from stdin and send it
+	if (FD_ISSET(fileno(stdin), &tmp)) {
+		fgets(read, sizeof(read), stdin);
+		send(sfd, read, strlen(read), 0);
+	}
+
+	// get input from connection socket and print it
+	if (FD_ISSET(sfd, &tmp)) {
+		bytes_received = recv(sfd, read, sizeof(read), 0);
+
+		if (bytes_received < 1) {
+			printf("Connection closed by peer.\n");
+			return -1;
+		}
+		printf("%.*s", bytes_received, read);
+	}
+
+	return 0;
+}
 
 int get_conn(char *hostname, char *port)
 {
@@ -52,18 +117,4 @@ int get_conn(char *hostname, char *port)
 
 	freeaddrinfo(res);
 	return sfd;
-}
-
-int main(int argc, char *argv[])
-{
-	if (argc == 3) {
-		get_conn(argv[1], argv[2]);
-		return -1;
-	}
-	else {
-		puts("Usage: ./a.out [destination] [port]");
-	}
-
-
-	return 0;
 }
