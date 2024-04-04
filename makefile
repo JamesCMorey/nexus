@@ -1,2 +1,2 @@
 main:
-	gcc *.c
+	gcc *.c -lncurses
