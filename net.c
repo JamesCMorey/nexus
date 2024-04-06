@@ -8,19 +8,6 @@
 #include <sys/select.h>
 #include "net.h"
 
-
-/*
-fd_set master;
-
-if (argc == 3) {
-	sfd = get_conn(argv[1], argv[2]);
-}
-
-FD_ZERO(&master);
-FD_SET(fileno(stdin), &master);
-FD_SET(sfd, &master);
-*/
-
 int handle_io(int sfd, fd_set master)
 {
 	char read[4096];

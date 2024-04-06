@@ -1,6 +1,10 @@
 #include <string.h>
-#include "display.h"
+#include <stdlib.h>
 #include "net.h"
+#include "display.h"
+
+#define CLEAR_WIN(win) werase(win); box(win, 0, 0)
+#define REMOVE_LAST_CHAR(arr) arr[strlen(arr) - 1] = '\0'
 
 struct winfo init_display()
 {
@@ -32,59 +36,84 @@ struct winfo init_display()
 	wrefresh(wins.display);
 
 	box(wins.input, 0, 0);
+	wmove(wins.input, 1, 1);
 	wrefresh(wins.input);
 
 	return wins;
 }
 
-int stop_display(struct winfo wins)
+int handle_input(const struct winfo wins, struct fds *fds, char *buffer)
 {
-	delwin(wins.nav);
-	delwin(wins.display);
-	delwin(wins.input);
-	endwin();
-}
-
-int handle_input(const struct winfo wins, char *buffer)
-{
+	int dx, dy, rv = 0;
 	char c;
-	int dx, dy, rv;
+
 	getyx(wins.display, dy, dx);
-	mvwprintw(wins.input, 1, 1, "%s", buffer);
+
 	c = wgetch(wins.input);
 	strncat(buffer, &c, 1);
 
-
+	// Command handling
 	if (c == '\n' && buffer[0] == '/') {
-		rv = parse_commands(buffer);
-
-		if(rv == -1) {
-			mvwprintw(wins.display, ++dy, 1, "Command not found:");
-			wrefresh(wins.display);
-		}
-		else if (rv == EXIT) {
-			return -1;
-		}
+		REMOVE_LAST_CHAR(buffer);
+		rv = handle_command(wins, fds, buffer);
+		c = ' ';
+		memset(buffer, 0, sizeof(buffer));
 	}
 
+	// Backspace handling
 	if (c == KEY_BACKSPACE || c == KEY_DC || c == 127) {
 		// need to delete DEL char and intended char
 		if (strlen(buffer) > 0) {
-			buffer[strlen(buffer) - 1] = '\0';
+			REMOVE_LAST_CHAR(buffer);
 		}
-		buffer[strlen(buffer) - 1] = '\0';
+		REMOVE_LAST_CHAR(buffer);
 	}
 
+	// Normal text handling
 	if (c == '\n') {
-		buffer[strlen(buffer) - 1] = '\0';
+		REMOVE_LAST_CHAR(buffer);
+
 		mvwprintw(wins.display, ++dy, 1, "%s", buffer);
-		wrefresh(wins.display);
+		wrefresh(wins.display); // refresh display
 
 		memset(buffer, 0, sizeof(buffer));
 	}
 
-	werase(wins.input);
-	box(wins.input, 0, 0);
+	CLEAR_WIN(wins.input);
+	mvwprintw(wins.input, 1, 1, "%s", buffer);
+
+	wrefresh(wins.input); // refresh input
+	return rv;
+}
+
+int handle_command(struct winfo wins, struct fds *fds, char *buffer)
+{
+	int dx, dy, rv;
+
+	getyx(wins.display, dy, dx);
+	rv = parse_commands(buffer);
+
+
+	if(rv == -1) {
+		mvwprintw(wins.display, ++dy, 1, "Command not found: %s",
+									buffer);
+		wrefresh(wins.display);
+	}
+	else if (rv == EXIT) {
+		return -1;
+	}
+	else if (rv == CONN) {
+
+		char *hostname = strtok(&buffer[strlen("/conn")], " ");
+		char *port  = strtok(NULL, " ");
+		mvwprintw(wins.display, ++dy, 1, "hostname: %s, port: %s",
+								hostname, port);
+
+		int sfd = get_conn(hostname, port);
+		mvwprintw(wins.display, ++dy, 1, "socket: %d", (sfd));
+		wrefresh(wins.display);
+	}
+
 	return 0;
 }
 
@@ -97,4 +126,12 @@ int parse_commands(char *buffer)
 	}
 
 	return -1;
+}
+
+int stop_display(struct winfo wins)
+{
+	delwin(wins.nav);
+	delwin(wins.display);
+	delwin(wins.input);
+	endwin();
 }
