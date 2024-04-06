@@ -7,6 +7,4 @@ Protocols like IRC, HTTP, ftp, ssh, etc. may be implemented later on.
 
 **TODO**
 
-1. Re-add networking (implement in display.c)
-2. Create a management/overarching function
-3. Organize
+Add tabbing feature to TUI alongside message send feature.

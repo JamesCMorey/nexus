@@ -27,12 +27,22 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 
-		if (handle_input(wins, &fds, buffer) < 0) {
+		if (handle_input(&wins, &fds, buffer) < 0) {
 			break;
 		}
 
 	}
 
+	for (int i = 3; i <= fds.max; i++) {
+		if (FD_ISSET(i, &fds.master)) {
+			mvwprintw(wins.display, ++wins.dy, 1, "Closing %d...",
+									i);
+			wrefresh(wins.display);
+			close(i);
+		}
+	}
+
+	getch();
 	stop_display(wins);
 	return 0;
 }

@@ -7,6 +7,15 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include "net.h"
+#include "display.h"
+
+#define FDISPLAY(x, y) \
+mvwprintw(wins->display, ++wins->dy, 1, x, y); \
+wrefresh(wins->display);
+
+#define DISPLAY(x) \
+mvwprintw(wins->display, ++wins->dy, 1, x); \
+wrefresh(wins->display);
 
 int handle_io(int sfd, fd_set master)
 {
@@ -42,7 +51,7 @@ int handle_io(int sfd, fd_set master)
 	return 0;
 }
 
-int get_conn(char *hostname, char *port)
+int get_conn(struct winfo *wins, char *hostname, char *port)
 {
 	struct addrinfo hints, *res, *itr;
 	int sfd, rv;
@@ -53,7 +62,7 @@ int get_conn(char *hostname, char *port)
 
 	rv = getaddrinfo(hostname, port, &hints, &res);
 	if (rv) {
-		fprintf(stderr, "getaddrinfo failed: %s\n", gai_strerror(rv));
+		FDISPLAY("getaddrinfo failed: %s", gai_strerror(rv));
 		return -1;
 	}
 
@@ -62,13 +71,15 @@ int get_conn(char *hostname, char *port)
 							itr->ai_protocol);
 
 		if (sfd == -1) {
-			fprintf(stderr, "Socket creation failed...\n");
+			DISPLAY("Socket creation failed...");
 			continue;
 		}
 
+
 		if (connect(sfd, itr->ai_addr,
 						itr->ai_addrlen) != -1) {
-			puts("Connection success.");
+			DISPLAY("Connection success.");
+
 			break; // success
 		}
 
@@ -77,14 +88,15 @@ int get_conn(char *hostname, char *port)
 	}
 
 	if (itr == NULL) {
-		fprintf(stderr, "Failed to create connection.\n");
+		DISPLAY("Failed to create connection.");
 		return -1;
 	}
 
 	char info[100];
 	getnameinfo(itr->ai_addr, itr->ai_addrlen, info, 100, 0, 0,
 								NI_NUMERICHOST);
-	printf("Connected to server at %s.\n", info);
+	FDISPLAY("Connected to server at %s.", info);
+	wrefresh(wins->display);
 
 	freeaddrinfo(res);
 	return sfd;

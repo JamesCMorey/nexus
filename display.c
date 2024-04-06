@@ -39,17 +39,17 @@ struct winfo init_display()
 	wmove(wins.input, 1, 1);
 	wrefresh(wins.input);
 
+	getyx(wins.display, wins.dy, wins.dx);
+	getyx(wins.nav, wins.ny, wins.nx);
 	return wins;
 }
 
-int handle_input(const struct winfo wins, struct fds *fds, char *buffer)
+int handle_input(struct winfo *wins, struct fds *fds, char *buffer)
 {
-	int dx, dy, rv = 0;
+	int rv = 0;
 	char c;
 
-	getyx(wins.display, dy, dx);
-
-	c = wgetch(wins.input);
+	c = wgetch(wins->input);
 	strncat(buffer, &c, 1);
 
 	// Command handling
@@ -72,32 +72,28 @@ int handle_input(const struct winfo wins, struct fds *fds, char *buffer)
 	// Normal text handling
 	if (c == '\n') {
 		REMOVE_LAST_CHAR(buffer);
-
-		mvwprintw(wins.display, ++dy, 1, "%s", buffer);
-		wrefresh(wins.display); // refresh display
+		FDISPLAY("%s", buffer);
 
 		memset(buffer, 0, sizeof(buffer));
 	}
 
-	CLEAR_WIN(wins.input);
-	mvwprintw(wins.input, 1, 1, "%s", buffer);
+	CLEAR_WIN(wins->input);
+	mvwprintw(wins->input, 1, 1, "%s", buffer);
 
-	wrefresh(wins.input); // refresh input
+	wrefresh(wins->input); // refresh input
 	return rv;
 }
 
-int handle_command(struct winfo wins, struct fds *fds, char *buffer)
+int handle_command(struct winfo *wins, struct fds *fds, char *buffer)
 {
 	int dx, dy, rv;
 
-	getyx(wins.display, dy, dx);
+	getyx(wins->display, dy, dx);
 	rv = parse_commands(buffer);
 
 
 	if(rv == -1) {
-		mvwprintw(wins.display, ++dy, 1, "Command not found: %s",
-									buffer);
-		wrefresh(wins.display);
+		FDISPLAY("Command not found: %s", buffer);
 	}
 	else if (rv == EXIT) {
 		return -1;
@@ -106,12 +102,30 @@ int handle_command(struct winfo wins, struct fds *fds, char *buffer)
 
 		char *hostname = strtok(&buffer[strlen("/conn")], " ");
 		char *port  = strtok(NULL, " ");
-		mvwprintw(wins.display, ++dy, 1, "hostname: %s, port: %s",
-								hostname, port);
 
-		int sfd = get_conn(hostname, port);
-		mvwprintw(wins.display, ++dy, 1, "socket: %d", (sfd));
-		wrefresh(wins.display);
+		if (port == NULL || hostname == NULL) {
+			DISPLAY("Server not found");
+			return 0;
+		}
+
+		// TODO implement check for protocol
+		int sfd = get_conn(wins, hostname, port);
+		if (sfd < 0) {
+			DISPLAY("Failed to connect.");
+			return 0;
+		}
+
+		FD_SET(sfd, &fds->master);
+		FD_SET(sfd, &fds->tcp);
+
+ 		FDISPLAY("current max: %d", fds->max);
+		if (sfd > fds->max) {
+			fds->max = sfd;
+		}
+ 		FDISPLAY("current max: %d", fds->max);
+
+		mvwprintw(wins->nav, 1, 1, "%s", hostname);
+		wrefresh(wins->nav);
 	}
 
 	return 0;
