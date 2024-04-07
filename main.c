@@ -5,9 +5,6 @@
 #include "display.h"
 #include "net.h"
 
-//# define SET_FLAG(x, arr) x | arr
-// # define ISSET(x, arr)
-
 int main(int argc, char *argv[])
 {
 	char buffer[1024] = "";
@@ -42,7 +39,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	getch();
 	stop_display(wins);
 	return 0;
 }
