@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
 #include "net.h"
@@ -7,58 +8,42 @@
 #define CLEAR_WIN(win) werase(win); box(win, 0, 0)
 #define REMOVE_LAST_CHAR(arr) arr[strlen(arr) - 1] = '\0'
 
-struct winfo init_display()
-{
-	// variables
-	int cols, rows;
-	struct winfo wins;
+struct tab {
+	char *tbname; /* Name that is displayed in the nav bar for the tab */
+	WINDOW *display;
+};
 
-	// Init functions
-	initscr();
-	cbreak();
-	keypad(stdscr, TRUE);
-	noecho();
+struct winState {
+	WINDOW *nav;
+	WINDOW *display;
+	WINDOW *input;
 
-	// initializing variables
-	getmaxyx(stdscr, rows, cols);
+	int dy, dx;
+	int ny, nx;
+	int iy, ix;
+	int max_ny, max_nx;
 
-	// windows
-	wins.nav = newwin(rows, cols/5, 0, 0);
-	wins.display = newwin(rows-2, 4*cols/5, 0, cols/5);
-	wins.input = newwin(3, 4*cols/5, rows-3, cols/5);
+	/* tabs organized with file descriptor such that tabs[sfd]; is the tab
+	 * that is used to display communications to and from that socket. */
+	struct tab tabs[1024];
+	struct tab currTab; /* -1: default display 0: tabs[0] 1: tabs[1] ... */
+	char *buf; /* input buffer from WINDOW *input */
+};
 
-	refresh(); // don't know why this is necessary here
+struct winState *Screen;
 
-	// creating outlines for main windows
-	box(wins.nav, 0, 0);
-	wrefresh(wins.nav);
-
-	box(wins.display, 0, 0);
-	wrefresh(wins.display);
-
-	box(wins.input, 0, 0);
-	wmove(wins.input, 1, 1);
-	wrefresh(wins.input);
-
-	getyx(wins.display, wins.dy, wins.dx);
-	getyx(wins.nav, wins.ny, wins.nx);
-
-	getmaxyx(wins.nav, wins.max_ny, wins.max_nx);
-	return wins;
-}
-
-int handle_input(struct winfo *wins, struct fds *fds, char *buffer)
+int handle_input()
 {
 	int rv = 0;
 	char c;
 
-	c = wgetch(wins->input);
-	strncat(buffer, &c, 1);
+	c = wgetch(Screen->input);
+	strncat(Screen, &c, 1);
 
 	// Command handling
-	if (c == '\n' && buffer[0] == '/') {
-		REMOVE_LAST_CHAR(buffer);
-		rv = handle_command(wins, fds, buffer);
+	if (c == '\n' && Screen->buf[0] == '/') {
+		REMOVE_LAST_CHAR(Screen->buffer);
+		rv = handle_command(Screen);
 
 		c = ' ';
 		memset(buffer, 0, sizeof(buffer));
@@ -88,10 +73,75 @@ int handle_input(struct winfo *wins, struct fds *fds, char *buffer)
 	return rv;
 }
 
-int stop_display(struct winfo wins)
+void display(int type, char *text, void *arg)
 {
-	delwin(wins.nav);
-	delwin(wins.display);
-	delwin(wins.input);
+	switch(type) {
+		case NOARG:
+			mvwprintw(wins->display, ++wins->dy, 1, text);
+			break;
+
+		case INT:
+			mvwprintw(wins->display, ++wins->dy, 1, text,
+								*(int *)arg);
+			break;
+
+		case STR:
+			mvwprintw(wins->display, ++wins->dy, 1, text,
+								(char *)arg);
+			break;
+
+		case default:
+			mvwprintw(wins->display, ++wins->dy, 1,
+				"Type not supported in call to display()",
+				__FILE__, __LINE__);
+	}
+
+	wrefresh(wins->display);
+}
+
+void init_display()
+{
+	// variables
+	int cols, rows;
+	struct winfo wins;
+
+	// Init functions
+	initscr();
+	cbreak();
+	keypad(stdscr, TRUE);
+	noecho();
+
+	// initializing variables
+	getmaxyx(stdscr, rows, cols);
+
+	// windows
+	wins->nav = newwin(rows, cols/5, 0, 0);
+	wins->display = newwin(rows-2, 4*cols/5, 0, cols/5);
+	wins->input = newwin(3, 4*cols/5, rows-3, cols/5);
+
+	refresh(); // don't know why this is necessary here
+
+	// creating outlines for main windows
+	box(wins->nav, 0, 0);
+	wrefresh(wins->nav);
+
+	box(wins->display, 0, 0);
+	wrefresh(wins->display);
+
+	box(wins->input, 0, 0);
+	wmove(wins->input, 1, 1);
+	wrefresh(wins->input);
+
+	getyx(wins->display, wins->dy, wins->dx);
+	getyx(wins->nav, wins->ny, wins->nx);
+
+	getmaxyx(wins->nav, wins->max_ny, wins->max_nx);
+}
+
+int stop_display()
+{
+	delwin(wins->nav);
+	delwin(wins->display);
+	delwin(wins->input);
 	endwin();
 }

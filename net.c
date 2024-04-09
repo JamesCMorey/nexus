@@ -9,49 +9,25 @@
 #include "net.h"
 #include "display.h"
 
-#define FDISPLAY(x, y) \
-mvwprintw(wins->display, ++wins->dy, 1, x, y); \
-wrefresh(wins->display);
+enum connType {
+	TCP, IRC, HTTP, FTP
+};
 
-#define DISPLAY(x) \
-mvwprintw(wins->display, ++wins->dy, 1, x); \
-wrefresh(wins->display);
+struct conn {
+	int sfd;
+	int type; /* connType: TCP, IRC, etc. */
+};
 
-int handle_io(int sfd, fd_set master)
-{
-	char read[4096];
-	int bytes_received;
-	fd_set tmp;
+/* global structure that encapsulates all connections */
+struct netState {
+	fd_set readFds;
+	int max;
+	struct conn conns[1024];
+};
 
+struct netState Net;
 
-	tmp = master;
-
-	if (select(sfd + 1, &tmp, 0, 0, 0) < 0) {
-		perror("select failed");
-		return -1;
-	}
-
-	// get input from stdin and send it
-	if (FD_ISSET(fileno(stdin), &tmp)) {
-		fgets(read, sizeof(read), stdin);
-		send(sfd, read, strlen(read), 0);
-	}
-
-	// get input from connection socket and print it
-	if (FD_ISSET(sfd, &tmp)) {
-		bytes_received = recv(sfd, read, sizeof(read), 0);
-
-		if (bytes_received < 1) {
-			printf("Connection closed by peer.\n");
-			return -1;
-		}
-		printf("%.*s", bytes_received, read);
-	}
-
-	return 0;
-}
-
-int get_conn(struct winfo *wins, char *hostname, char *port)
+int get_conn(char *hostname, char *port)
 {
 	struct addrinfo hints, *res, *itr;
 	int sfd, rv;
@@ -62,7 +38,7 @@ int get_conn(struct winfo *wins, char *hostname, char *port)
 
 	rv = getaddrinfo(hostname, port, &hints, &res);
 	if (rv) {
-		FDISPLAY("getaddrinfo failed: %s", gai_strerror(rv));
+		display(STR, "getaddrinfo failed: %s", gai_strerror(rv));
 		return -1;
 	}
 
@@ -71,15 +47,13 @@ int get_conn(struct winfo *wins, char *hostname, char *port)
 							itr->ai_protocol);
 
 		if (sfd == -1) {
-			DISPLAY("Socket creation failed...");
+			display(NOARG, "Socket creation failed...", NULL);
 			continue;
 		}
 
 
-		if (connect(sfd, itr->ai_addr,
-						itr->ai_addrlen) != -1) {
-			DISPLAY("Connection success.");
-
+		if (connect(sfd, itr->ai_addr, itr->ai_addrlen) != -1) {
+			display(NOARG, "Connection success.", NULL);
 			break; // success
 		}
 
@@ -88,16 +62,25 @@ int get_conn(struct winfo *wins, char *hostname, char *port)
 	}
 
 	if (itr == NULL) {
-		DISPLAY("Failed to create connection.");
+		display(NOARG, "Failed to create connection.", NULL);
 		return -1;
 	}
 
 	char info[100];
 	getnameinfo(itr->ai_addr, itr->ai_addrlen, info, 100, 0, 0,
 								NI_NUMERICHOST);
-	FDISPLAY("Connected to server at %s.", info);
-	wrefresh(wins->display);
+	display(STR, "Connected to server at %s.", info);
 
 	freeaddrinfo(res);
 	return sfd;
+}
+
+void closeAllConns() /* TODO: Implement this */
+{
+	for (int i = ; i <= fds.max; i++) {
+		if (FD_ISSET(i, &fds->master)) {
+			display(INT, "Closing %d...", i);
+			close(i);
+		}
+	}
 }

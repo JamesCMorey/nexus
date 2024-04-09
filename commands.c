@@ -3,7 +3,7 @@
 #include "commands.h"
 #include "display.h"
 
-int handle_command(struct winfo *wins, struct fds *fds, char *buffer)
+int handle_command(char *buffer)
 {
 	int rv;
 
