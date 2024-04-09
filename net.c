@@ -77,10 +77,12 @@ int get_conn(char *hostname, char *port)
 
 void closeAllConns() /* TODO: Implement this */
 {
-	for (int i = ; i <= fds.max; i++) {
+	/*
+	for (int i = 3; i <= fds.max; i++) {
 		if (FD_ISSET(i, &fds->master)) {
 			display(INT, "Closing %d...", i);
 			close(i);
 		}
 	}
+	*/
 }

@@ -9,7 +9,7 @@
 int main(int argc, char *argv[])
 {
 	init_display();
-
+	/*
 	while(1) {
 		tmp = getReadFDs();
 
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 
 	}
 
-
-	stop_display(wins);
+	*/
+	stop_display();
 	return 0;
 }
