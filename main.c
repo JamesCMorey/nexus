@@ -4,27 +4,27 @@
 
 #include "display.h"
 #include "net.h"
-
+#include "log.h"
 
 int main(int argc, char *argv[])
 {
-	init_display();
-	/*
-	while(1) {
-		tmp = getReadFDs();
+	init_log("z.log");
+	init_screen();
 
+	while(1) {
+
+		/*
 		if (select(1, &tmp, 0, 0, 0) < 0) {
 			fprintf( stderr, "select error %d\n", errno);
 			return -1;
 		}
-
+		*/
 		if (handle_input() < 0) {
 			break;
 		}
 
 	}
 
-	*/
-	stop_display();
+	stop_screen();
 	return 0;
 }

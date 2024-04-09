@@ -4,7 +4,7 @@ enum ARGTYPE {
 	NOARG, INT, STR
 };
 
-void display(int type, char *text, void *arg);
+void display(int type, char *text, const void *arg);
 int handle_input();
-void init_display();
-int stop_display();
+void init_screen();
+void stop_screen();

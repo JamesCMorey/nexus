@@ -5,6 +5,7 @@
 #include "net.h"
 #include "display.h"
 #include "commands.h"
+#include "log.h"
 
 #define CLEAR_WIN(win) werase(win); box(win, 0, 0)
 #define REMOVE_LAST_CHAR(arr) arr[strlen(arr) - 1] = '\0'
@@ -29,10 +30,11 @@ struct screenState {
 	 * that is used to display communications to and from that socket. */
 	struct tab tabs[1024];
 	struct tab currTab; /* -1: default display 0: tabs[0] 1: tabs[1] ... */
-	char *buffer; /* input buffer from WINDOW *input */
+	char buffer[1024]; /* input buffer from WINDOW *input */
 };
 
-static struct screenState *Screen;
+/* global struct to hold all information, windows, and input from the screen */
+struct screenState *Screen;
 
 int handle_input()
 {
@@ -43,9 +45,9 @@ int handle_input()
 	strncat(Screen->buffer, &c, 1);
 
 	// Command handling
-	if (c == '\n' && Screen->buf[0] == '/') {
+	if (c == '\n' && Screen->buffer[0] == '/') {
 		REMOVE_LAST_CHAR(Screen->buffer);
-		rv = handle_command(Screen);
+		rv = handle_command(Screen->buffer);
 
 		c = ' ';
 		memset(Screen->buffer, 0, sizeof(Screen->buffer));
@@ -63,57 +65,62 @@ int handle_input()
 	// Normal text handling
 	if (c == '\n') {
 		REMOVE_LAST_CHAR(Screen->buffer);
-		FDISPLAY("%s", Screen->buffer);
+		display(STR, "%s", Screen->buffer);
 
 		memset(Screen->buffer, 0, sizeof(Screen->buffer));
 	}
 
 	CLEAR_WIN(Screen->input);
 	mvwprintw(Screen->input, 1, 1, "%s", Screen->buffer);
-
 	wrefresh(Screen->input); // refresh input
+
 	return rv;
 }
 
-void display(int type, char *text, void *arg)
+void display(int type, char *text, const void *arg)
 {
 	switch(type) {
-		case NOARG:
-			mvwprintw(Screen->display, ++Screen->dy, 1, text);
-			break;
+	case NOARG:
+		mvwprintw(Screen->display, ++Screen->dy, 1, "%s", text);
+		break;
 
-		case INT:
-			mvwprintw(Screen->display, ++Screen->dy, 1, text,
-								*(int *)arg);
-			break;
+	case INT:
+		mvwprintw(Screen->display, ++Screen->dy, 1, text,
+							*(int *)arg);
+		break;
 
-		case STR:
-			mvwprintw(Screen->display, ++Screen->dy, 1, text,
-								(char *)arg);
-			break;
+	case STR:
+		mvwprintw(Screen->display, ++Screen->dy, 1, text,
+							(char *)arg);
+		break;
 
-		case default:
-			mvwprintw(Screen->display, ++Screen->dy, 1,
-				"Type not supported in call to display()",
-				__FILE__, __LINE__);
+	default:
+		mvwprintw(Screen->display, ++Screen->dy, 1,
+			"Type not supported in call to display(): %s, %d",
+			__FILE__, __LINE__);
 	}
 
 	wrefresh(Screen->display);
 }
 
-void init_display()
+void init_screen()
 {
+	wlog("Beginning screen initialization...\n");
 	// Init functions
 	initscr();
 	cbreak();
 	keypad(stdscr, TRUE);
 	noecho();
 
+
 	// initializing variables
-	Screen->buffer = "";
+	Screen = malloc(sizeof(struct screenState));
+
+	//Screen->buffer = "";
 	getmaxyx(stdscr, Screen->rows, Screen->cols);
 	int cols = Screen->cols;
 	int rows = Screen->rows;
+
 
 	// windows
 	Screen->nav = newwin(rows, cols/5, 0, 0);
@@ -121,6 +128,7 @@ void init_display()
 	Screen->input = newwin(3, 4*cols/5, rows-3, cols/5);
 
 	refresh(); // don't know why this is necessary here
+
 
 	// creating outlines for main windows
 	box(Screen->nav, 0, 0);
@@ -137,12 +145,15 @@ void init_display()
 	getyx(Screen->nav, Screen->ny, Screen->nx);
 
 	getmaxyx(Screen->nav, Screen->max_ny, Screen->max_nx);
+	wlog("Completed screen initialization...\n");
 }
 
-int stop_display()
+void stop_screen()
 {
+	wlog("Beginning screen shutdown...\n");
 	delwin(Screen->nav);
 	delwin(Screen->display);
 	delwin(Screen->input);
 	endwin();
+	wlog("Completed screen shutdown...\n");
 }

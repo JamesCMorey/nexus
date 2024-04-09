@@ -1,2 +1,3 @@
 main:
-	gcc *.c -lncurses
+	clear
+	gcc -Wall *.c -lncurses
