@@ -25,7 +25,7 @@ struct netState {
 	struct conn conns[1024];
 };
 
-struct netState Net;
+struct netState *Net;
 
 int get_conn(char *hostname, char *port)
 {

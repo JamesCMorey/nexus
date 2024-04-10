@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include "net.h"
 #include "commands.h"
 #include "display.h"
 
@@ -34,7 +35,7 @@ int handle_command(char *buffer)
 
 		if (port == NULL || hostname == NULL) {
 			display(NOARG, "You need to enter the hostname and port",
-							NULL);
+				NULL);
 			return 0;
 		}
 
@@ -49,7 +50,7 @@ int handle_command(char *buffer)
 	}
 
 	else if (rv == NEWTAB) {
-		char *tabname = strtok(&buffer[strlen("/nt")], " ");
+		//char *tabname = strtok(&buffer[strlen("/nt")], " ");
 	}
 
 	return 0;

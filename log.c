@@ -3,18 +3,20 @@
 #include <time.h>
 #include "log.h"
 
-enum type {
-	NOARG, STR, INT
-};
-
 FILE *logfd;
 
 void init_log(char *filename)
 {
 	char *mode = "a+";
 	logfd = fopen(filename, mode);
+	wlog("-------------------------------------------------------------\n");
 }
 
+void stop_log()
+{
+	wlog("-------------------------------------------------------------\n");
+	fclose(logfd);
+}
 void wlog(char *text)
 {
 	fprintf(logfd, "%s: ", timestamp());

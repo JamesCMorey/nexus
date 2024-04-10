@@ -1,8 +1,6 @@
 #pragma once
 
-enum ARGTYPE {
-	NOARG, INT, STR
-};
+#include "config.h"
 
 void display(int type, char *text, const void *arg);
 int handle_input();

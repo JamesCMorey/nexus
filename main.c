@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include <errno.h>
-
 #include "display.h"
 #include "net.h"
 #include "log.h"
@@ -26,5 +25,6 @@ int main(int argc, char *argv[])
 	}
 
 	stop_screen();
+	stop_log();
 	return 0;
 }

@@ -1,14 +1,10 @@
-#include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ncurses.h>
-#include "net.h"
 #include "display.h"
 #include "commands.h"
 #include "log.h"
 
-#define CLEAR_WIN(win) werase(win); box(win, 0, 0)
-#define REMOVE_LAST_CHAR(arr) arr[strlen(arr) - 1] = '\0'
 
 struct tab {
 	char *tbname; /* Name that is displayed in the nav bar for the tab */
@@ -33,6 +29,9 @@ struct screenState {
 	char buffer[1024]; /* input buffer from WINDOW *input */
 };
 
+#define CLEAR_WIN(win) werase(win); box(win, 0, 0)
+#define REMOVE_LAST_CHAR(arr) arr[strlen(arr) - 1] = '\0'
+
 /* global struct to hold all information, windows, and input from the screen */
 struct screenState *Screen;
 
@@ -44,12 +43,18 @@ int handle_input()
 	c = wgetch(Screen->input);
 	strncat(Screen->buffer, &c, 1);
 
-	// Command handling
+	/* Command handling */
 	if (c == '\n' && Screen->buffer[0] == '/') {
 		REMOVE_LAST_CHAR(Screen->buffer);
 		rv = handle_command(Screen->buffer);
 
-		c = ' ';
+		memset(Screen->buffer, 0, sizeof(Screen->buffer));
+	}
+	/* Normal text handling */
+	else if (c == '\n') {
+		REMOVE_LAST_CHAR(Screen->buffer);
+		display(STR, "%s", Screen->buffer);
+
 		memset(Screen->buffer, 0, sizeof(Screen->buffer));
 	}
 
@@ -62,14 +67,8 @@ int handle_input()
 		REMOVE_LAST_CHAR(Screen->buffer);
 	}
 
-	// Normal text handling
-	if (c == '\n') {
-		REMOVE_LAST_CHAR(Screen->buffer);
-		display(STR, "%s", Screen->buffer);
 
-		memset(Screen->buffer, 0, sizeof(Screen->buffer));
-	}
-
+	/* Clear the input field and redraw it, including the box around it. */
 	CLEAR_WIN(Screen->input);
 	mvwprintw(Screen->input, 1, 1, "%s", Screen->buffer);
 	wrefresh(Screen->input); // refresh input
@@ -145,7 +144,7 @@ void init_screen()
 	getyx(Screen->nav, Screen->ny, Screen->nx);
 
 	getmaxyx(Screen->nav, Screen->max_ny, Screen->max_nx);
-	wlog("Completed screen initialization...\n");
+	wlog("Completed screen initialization.\n");
 }
 
 void stop_screen()
@@ -155,5 +154,6 @@ void stop_screen()
 	delwin(Screen->display);
 	delwin(Screen->input);
 	endwin();
-	wlog("Completed screen shutdown...\n");
+	wlog("Completed screen shutdown.\n");
 }
+
