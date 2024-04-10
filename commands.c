@@ -7,12 +7,12 @@
 
 #define NUMCOMMANDS 5
 
-static const char *COMMANDS[NUMCOMMANDS] = {	"exit", "conn", "disc", "nt",
-						"clr"	};
+static const char *COMMANDS[NUMCOMMANDS] = {	"exit", "conn", "disc", "clr",
+						"sw"	};
 
 enum command_code {
-	EXIT, CONN, DISC, NEWTAB,
-	CLR
+	EXIT, CONN, DISC, CLR,
+	SW
 };
 
 static void conn_cmd(char *buffer);
@@ -34,12 +34,12 @@ int handle_command(char *buffer)
 		conn_cmd(buffer);
 	}
 
-	else if (rv == NEWTAB) {
-		char *tabname = strtok(&buffer[strlen("/nt")], " ");
-		mktab(tabname, -1);
-	}
 	else if (rv == CLR) {
 		clr_cur_win();
+	}
+	else if (rv == SW) {
+		char *id = strtok(&buffer[strlen("/sw")], " ");
+		switch_tab(id[0] - '0');
 	}
 
 	return 0;
@@ -56,7 +56,13 @@ static void conn_cmd(char *buffer)
 	}
 
 	int sfd = get_conn(hostname, port);
+
+	if (sfd < 0) {
+		return;
+	}
+
 	mktab(hostname, sfd);
+	display(STR, "%s", "Connection successful");
 }
 
 int parse_commands(char *buffer)
