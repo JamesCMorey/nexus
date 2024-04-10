@@ -7,7 +7,7 @@
 
 int main(int argc, char *argv[])
 {
-	init_log("z.log");
+	init_log("z");
 	init_net();
 	init_screen();
 

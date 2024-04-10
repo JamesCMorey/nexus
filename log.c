@@ -25,7 +25,7 @@ void wlog(char *text)
 	fflush(logfd);
 }
 
-void walog(int type, char *text, void *arg)
+void walog(int type, char *text, const void *arg)
 {
 	switch(type) {
 	case NOARG:
@@ -48,6 +48,7 @@ void walog(int type, char *text, void *arg)
 		fprintf(logfd, "Invalid log type (%s:%d)", __FILE__, __LINE__);
 	}
 
+	fprintf(logfd ,"\r\n");
 	fflush(logfd);
 }
 

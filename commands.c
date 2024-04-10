@@ -35,7 +35,7 @@ int handle_command(char *buffer)
 	}
 
 	else if (rv == CLR) {
-		clr_cur_win();
+		clr_display();
 	}
 	else if (rv == SW) {
 		char *id = strtok(&buffer[strlen("/sw")], " ");
