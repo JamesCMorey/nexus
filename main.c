@@ -8,6 +8,7 @@
 int main(int argc, char *argv[])
 {
 	init_log("z.log");
+	init_net();
 	init_screen();
 
 	while(1) {
@@ -25,6 +26,7 @@ int main(int argc, char *argv[])
 	}
 
 	stop_screen();
+	stop_net();
 	stop_log();
 	return 0;
 }

@@ -9,18 +9,19 @@ void init_log(char *filename)
 {
 	char *mode = "a+";
 	logfd = fopen(filename, mode);
-	wlog("-------------------------------------------------------------\n");
+	wlog("-------------------------------------------------------------");
 }
 
 void stop_log()
 {
-	wlog("-------------------------------------------------------------\n");
+	wlog("-------------------------------------------------------------");
 	fclose(logfd);
 }
 void wlog(char *text)
 {
 	fprintf(logfd, "%s: ", timestamp());
 	fprintf(logfd, "%s", text);
+	fprintf(logfd, "\r\n");
 	fflush(logfd);
 }
 

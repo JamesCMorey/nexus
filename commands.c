@@ -1,19 +1,21 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "net.h"
 #include "commands.h"
 #include "display.h"
 
-#define NUMCOMMANDS 4
+#define NUMCOMMANDS 5
 
-static const char *COMMANDS[NUMCOMMANDS] = {"exit", "conn", "disc", "nt"};
+static const char *COMMANDS[NUMCOMMANDS] = {	"exit", "conn", "disc", "nt",
+						"clr"	};
 
 enum command_code {
-	EXIT,
-	CONN,
-	DISC,
-	NEWTAB
+	EXIT, CONN, DISC, NEWTAB,
+	CLR
 };
+
+static void conn_cmd(char *buffer);
 
 int handle_command(char *buffer)
 {
@@ -29,31 +31,32 @@ int handle_command(char *buffer)
 	}
 
 	else if (rv == CONN) {
-
-		char *hostname = strtok(&buffer[strlen("/conn")], " ");
-		char *port  = strtok(NULL, " ");
-
-		if (port == NULL || hostname == NULL) {
-			display(NOARG, "You need to enter the hostname and port",
-				NULL);
-			return 0;
-		}
-
-		// TODO implement check for protocol
-		int sfd = get_conn(hostname, port);
-		if (sfd < 0) {
-			display(NOARG, "Failed to connect.", NULL);
-			return 0;
-		}
-
-		/* mktab(hostname); TODO: implement mktab */
+		conn_cmd(buffer);
 	}
 
 	else if (rv == NEWTAB) {
-		//char *tabname = strtok(&buffer[strlen("/nt")], " ");
+		char *tabname = strtok(&buffer[strlen("/nt")], " ");
+		mktab(tabname, -1);
+	}
+	else if (rv == CLR) {
+		clr_cur_win();
 	}
 
 	return 0;
+}
+
+static void conn_cmd(char *buffer)
+{
+	char *hostname = strtok(&buffer[strlen("/conn")], " ");
+	char *port  = strtok(NULL, " ");
+
+	if (port == NULL || hostname == NULL) {
+		display(NOARG, "You need to enter the hostname and port", NULL);
+		return;
+	}
+
+	int sfd = get_conn(hostname, port);
+	mktab(hostname, sfd);
 }
 
 int parse_commands(char *buffer)

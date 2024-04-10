@@ -1,17 +1,15 @@
 #include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/select.h>
 #include "net.h"
+#include "log.h"
 #include "display.h"
-
-enum connType {
-	TCP, IRC, HTTP, FTP
-};
 
 struct conn {
 	int sfd;
@@ -20,9 +18,10 @@ struct conn {
 
 /* global structure that encapsulates all connections */
 struct netState {
-	fd_set readFds;
+	fd_set readfds;
 	int max;
-	struct conn conns[1024];
+	int conn_count;
+	struct conn *conns[1024];
 };
 
 struct netState *Net;
@@ -85,4 +84,30 @@ void closeAllConns() /* TODO: Implement this */
 		}
 	}
 	*/
+}
+
+void init_net()
+{
+	wlog("Initializing network...");
+	Net = malloc(sizeof(struct netState));
+
+	FD_ZERO(&Net->readfds);
+	FD_SET(fileno(stdin), &Net->readfds); /* Don't ignore user input */
+	Net->max = fileno(stdin);
+	wlog("Network initialization completed.");
+}
+
+void stop_net()
+{
+	wlog("Shutting down network...");
+
+	for (int i = 0; i <= Net->max; i++) {
+		if(Net->conns[i] != NULL) {
+			close(Net->conns[i]->sfd);
+			free(Net->conns[i]);
+		}
+	}
+
+	free(Net);
+	wlog("Network shutdown complete.");
 }
