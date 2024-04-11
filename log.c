@@ -40,7 +40,7 @@ void walog(int type, char *text, const void *arg)
 
 	case STR:
 		fprintf(logfd, "%s: ", timestamp());
-		fprintf(logfd, text, arg);
+		fprintf(logfd, text, (char *)arg);
 		break;
 
 	default:

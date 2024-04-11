@@ -200,7 +200,7 @@ static void addmsg(struct tab *tb, int type, char *text, const void *arg)
 		break;
 
 	case STR:
-		snprintf(tb->msgs[tb->msgnum], MAX_MSG_LEN, text, *(char *)arg);
+		snprintf(tb->msgs[tb->msgnum], MAX_MSG_LEN, text, (char *)arg);
 		break;
 
 	default:
