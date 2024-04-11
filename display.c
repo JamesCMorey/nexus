@@ -49,14 +49,20 @@ struct screenState {
 /* global struct to hold all information, windows, and input from the screen */
 static struct screenState *Screen;
 
+/* Handling display */
+void display(int type, char *text, const void *arg); /* TODO remove this */
 static void clrwin(WINDOW *win);
-static void deltab(struct tab *tb);
 static void show_tabs(void);
-static void display_curtab();
-static void println(char *text);
-static void addmsg(struct tab *tb, int type, char *text, const void *arg);
+static void displayln(char *text);
 static void display_tab(struct tab *tb);
-static int nummsg_display();
+void display_msg(char *text);
+
+/* Handling tabs */
+static void deltab(struct tab *tb);
+static void addmsg(struct tab *tb, int type, char *text, const void *arg);
+
+/* Misc */
+static int count_msg_fill_display(void);
 
 /* INPUT */
 int handle_input() /* TODO add check to ensure input is <500 chars */
@@ -77,9 +83,7 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 	/* Normal text handling */
 	else if (c == '\n') {
 		REMOVE_LAST_CHAR(Screen->buffer);
-		wlog("Displaying text...");
 		display(STR, "%s", Screen->buffer);
-		wlog("Displayed text.");
 
 		memset(Screen->buffer, 0, sizeof(Screen->buffer));
 	}
@@ -105,73 +109,91 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 /* MISC */
 
 void display(int type, char *text, const void *arg)
-{
-	switch(type) {
-	case NOARG:
-		mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", text);
-		break;
-
-	case INT:
-		mvwprintw(Screen->display, ++Screen->curtab->y, 1, text,
-								*(int *)arg);
-		break;
-
-	case STR:
-		walog(INT, "Printing at y=%d...", &Screen->curtab->y);
-		mvwprintw(Screen->display, ++Screen->curtab->y, 1, text,
-								(char *)arg);
-		break;
-
-	default:
-		mvwprintw(Screen->display, ++Screen->curtab->y, 1,
-			"Type not supported in call to display(): %s, %d",
-			__FILE__, __LINE__);
-	}
-
-	wlog("Printed.");
-	/*
-	clr_display();
+{ /* Add ability to add to tab based off id */
 	addmsg(Screen->curtab, type, text, arg);
 	display_tab(Screen->curtab);
-	*/
-	wrefresh(Screen->display);
 }
-
 static void display_tab(struct tab *tb)
 {
+	clr_display();
+	Screen->curtab->y = 0;
+	/* STEPS
+	 * 0. clrscreen
+	 * 1. Count num of msgs that will fill the screen
+	 * 2. store the extra bytes that are potentially there (partial msg)
+	 * 3. Print the partial message at the top of the tab
+	 * 4. Print the rest of the messages
+	 * 5. wrefresh()
+	 * */
+	int msgcount = count_msg_fill_display();
+	int msgindex;
 
+	for (int i = msgcount; i > 0; i--) { /* index 0 is the final message */
+		msgindex = Screen->curtab->msgnum - i;
+		walog(INT, "Printing msg #%d", &msgindex);
+		walog(STR, "Message: %s", Screen->curtab->msgs[msgindex]);
+		display_msg(Screen->curtab->msgs[msgindex]);
+	}
+
+	wrefresh(Screen->display);
 }
 
-static int nummsg_display()
+static int count_msg_fill_display(void)
 {
-	int rows, msgnum, msgindex, size;
-	int extra;
+	int rows, msgnum, finalindex, msglen;
 
+	if (Screen->curtab->msgnum == 0) {
+		return -1;
+	}
+
+	rows = 0;
+	msgnum = 0;
+	/* while there is still space on screen */
 	while (rows < Screen->max_dy) {
-		/* count numrows the msg takes */
-		msgindex = Screen->curtab->msgnum - msgnum - 1;
-		size = strlen(Screen->curtab->msgs[msgindex]);
+		if (msgnum == Screen->curtab->msgnum) {
+			return msgnum;
+		}
 
-		/* only if the screen can hold the whole message */
-		if (size == 0) {
+		/* count num rows each msg takes */
+		finalindex = Screen->curtab->msgnum - 1;
+		msglen = strlen(Screen->curtab->msgs[finalindex - msgnum]);
+
+		msglen -= (Screen->max_dx - 2); /* -2 for border */
+
+		/* increment only if the screen can hold the whole message */
+		if (msglen <= 0) {
 			msgnum++;
 		}
+
+		/* each iteration occupies a row */
+		rows++;
 	}
 
+	return msgnum;
 }
 
-void printmsg(char *text)
+void display_msg(char *text)
 {
-	int len;
-	while (len > 0) {
-		len -= (Screen->max_dx - 2);
+	int lenprinted;
+	int i = 0;
+	char substring[Screen->max_dx - 2];
+
+	lenprinted = (Screen->max_dx - 2);
+	while(lenprinted == (Screen->max_dx - 2)) {
+		strncpy(substring, &text[i], (Screen->max_dx - 2));
+		displayln(substring);
+
+		/* If lenprintd is less than the width, that means the msg
+		 * has been fully printed */
+		lenprinted = strlen(substring);
+		i += Screen->max_dx - 2;
 	}
 }
 
-static void println(char *text)
+static void displayln(char *text)
 {
 	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", text);
-	wrefresh(Screen->display);
+	wrefresh(Screen->display); /* TODO reorganize this */
 }
 
 void clr_display(void)
@@ -209,7 +231,6 @@ static void addmsg(struct tab *tb, int type, char *text, const void *arg)
 			__FILE__, __LINE__);
 	}
 
-	strncpy(tb->msgs[tb->msgnum], text, sizeof(text));
 	tb->msgnum++;
 }
 
@@ -243,14 +264,9 @@ void mktab(char *name, int id)
 		Screen->maxtab = i;
 	}
 
-	display_curtab();
+	display_tab(Screen->curtab);
 
 	show_tabs();
-}
-
-static void display_curtab()
-{
-	//display();
 }
 
 /* In case more things are added to struct tab */
@@ -299,7 +315,7 @@ void switch_tab(int id)
 	for (int i = id; i <= Screen->maxtab; i++) {
 		if (Screen->tabs[i]->id == id) {
 			Screen->curtab = Screen->tabs[i];
-			display_curtab();
+			display_tab(Screen->curtab);
 		}
 	}
 }
@@ -332,7 +348,7 @@ void init_screen(void)
 	/* windows and default tab */
 	Screen->nav = newwin(rows, cols/5, 0, 0);
 	Screen->input = newwin(3, 4*cols/5, rows-3, cols/5);
-	Screen->display = newwin(rows-2, 4*rows-2, 0, cols/5);
+	Screen->display = newwin(rows-2, 4*cols/5, 0, cols/5);
 
 	mktab("default", 0);
 	wlog("Windows and default tab initialized...");
