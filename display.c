@@ -16,6 +16,7 @@ struct tab {
 	/* Name that is displayed in the nav bar for the tab */
 	char tabname[MAX_TABNAME_LEN];
 	int id;
+	int sfd;
 	int unread:1; /* Flag for unseen activity in tab */
 
 	char msgs[MSGS_PER_TAB][MAX_MSG_LEN];
@@ -140,7 +141,7 @@ static void display_tab(struct tab *tb)
 
 static int count_msg_fill_display(void)
 {
-	int rows, msgnum, finalindex, msglen;
+	int rows, msgnum, finalindex, msglen, getnewmsg;
 
 	if (Screen->curtab->msgnum == 0) {
 		return -1;
@@ -148,21 +149,26 @@ static int count_msg_fill_display(void)
 
 	rows = 0;
 	msgnum = 0;
+	getnewmsg = 1;
 	/* while there is still space on screen */
-	while (rows < Screen->max_dy) {
+	while (rows < Screen->max_dy) { /* && msgnum < Screen->curtab->msgnum */
 		if (msgnum == Screen->curtab->msgnum) {
 			return msgnum;
 		}
 
 		/* count num rows each msg takes */
-		finalindex = Screen->curtab->msgnum - 1;
-		msglen = strlen(Screen->curtab->msgs[finalindex - msgnum]);
+		if (getnewmsg) {
+			finalindex = Screen->curtab->msgnum - 1;
+			msglen = strlen(Screen->curtab->msgs[finalindex - msgnum]);
+			getnewmsg = 0;
+		}
 
 		msglen -= (Screen->max_dx - 2); /* -2 for border */
 
 		/* increment only if the screen can hold the whole message */
 		if (msglen <= 0) {
 			msgnum++;
+			getnewmsg = 1;
 		}
 
 		/* each iteration occupies a row */
@@ -176,11 +182,15 @@ void display_msg(char *text)
 {
 	int lenprinted;
 	int i = 0;
-	char substring[Screen->max_dx - 2];
+	char substring[Screen->max_dx - 2 + 1];
+	int tmp = sizeof(substring);
+	walog(INT, "sizeof(substring): %d", &tmp);
 
 	lenprinted = (Screen->max_dx - 2);
 	while(lenprinted == (Screen->max_dx - 2)) {
-		strncpy(substring, &text[i], (Screen->max_dx - 2));
+		strncpy(substring, text + i, sizeof(substring));
+		substring[Screen->max_dx - 2] = '\0';
+
 		displayln(substring);
 
 		/* If lenprintd is less than the width, that means the msg
@@ -193,7 +203,7 @@ void display_msg(char *text)
 static void displayln(char *text)
 {
 	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", text);
-	wrefresh(Screen->display); /* TODO reorganize this */
+	// wrefresh(Screen->display); /* TODO reorganize this */
 }
 
 void clr_display(void)
@@ -235,24 +245,24 @@ static void addmsg(struct tab *tb, int type, char *text, const void *arg)
 }
 
 /* create a tab and set it to Screen->curtab */
-void mktab(char *name, int id)
+void mktab(char *name, int sfd)
 {
 	int i;
-	if (id > 3) { /* Make up for default fds stdin, stdout, stderr */
-		i = id - 3;
+	if (sfd > 3) { /* Make up for default fds stdin, stdout, stderr */
+		i = sfd - 3;
 	}
 	else {
-		i = id;
+		i = sfd;
 	}
 
 	while (Screen->tabs[i] != NULL) {
 		i++;
 	}
 
-
 	Screen->tabs[i] = malloc(sizeof(struct tab));
 	strncpy(Screen->tabs[i]->tabname, name, sizeof(char) * 10);
-	Screen->tabs[i]->id = id; /* Allows matching network conn to tab */
+	Screen->tabs[i]->id = i;
+	Screen->tabs[i]->sfd = sfd; /* Allows matching network conn to tab */
 	Screen->tabs[i]->y = 0;
 	Screen->tabs[i]->x = 0;
 	Screen->tabs[i]->msgnum = 0;
@@ -265,7 +275,6 @@ void mktab(char *name, int id)
 	}
 
 	display_tab(Screen->curtab);
-
 	show_tabs();
 }
 
@@ -316,6 +325,8 @@ void switch_tab(int id)
 		if (Screen->tabs[i]->id == id) {
 			Screen->curtab = Screen->tabs[i];
 			display_tab(Screen->curtab);
+			show_tabs();
+			break;
 		}
 	}
 }

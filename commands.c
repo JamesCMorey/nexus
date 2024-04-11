@@ -38,7 +38,7 @@ int handle_command(char *buffer)
 		clr_display();
 	}
 	else if (rv == SW) {
-		char *id = strtok(&buffer[strlen("/sw")], " ");
+		char *id = strtok(&buffer[strlen(":sw")], " ");
 		switch_tab(id[0] - '0');
 	}
 
@@ -47,7 +47,7 @@ int handle_command(char *buffer)
 
 static void conn_cmd(char *buffer)
 {
-	char *hostname = strtok(&buffer[strlen("/conn")], " ");
+	char *hostname = strtok(&buffer[strlen(":conn")], " ");
 	char *port  = strtok(NULL, " ");
 
 	if (port == NULL || hostname == NULL) {
