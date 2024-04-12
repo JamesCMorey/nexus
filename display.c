@@ -89,7 +89,7 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 		memset(Screen->buffer, 0, sizeof(Screen->buffer));
 	}
 
-	// Backspace handling
+	/* Backspace handling */
 	if (c == KEY_BACKSPACE || c == KEY_DC || c == 127) {
 		// need to delete DEL char and intended char
 		if (strlen(Screen->buffer) > 0) {
@@ -98,11 +98,10 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 		REMOVE_LAST_CHAR(Screen->buffer);
 	}
 
-
 	/* Clear the input field and redraw it, including the box around it. */
 	CLEAR_WIN(Screen->input);
 	mvwprintw(Screen->input, 1, 1, "%s", Screen->buffer);
-	wrefresh(Screen->input); // refresh input
+	wrefresh(Screen->input); /* refresh input */
 
 	return rv;
 }
@@ -118,17 +117,9 @@ static void display_tab(struct tab *tb)
 {
 	clr_display();
 	Screen->curtab->y = 0;
-	/* STEPS
-	 * 0. clrscreen
-	 * 1. Count num of msgs that will fill the screen
-	 * 2. store the extra bytes that are potentially there (partial msg)
-	 * 3. Print the partial message at the top of the tab
-	 * 4. Print the rest of the messages
-	 * 5. wrefresh()
-	 * */
+
 	int msgcount = count_msg_fill_display();
 	int msgindex;
-
 	for (int i = msgcount; i > 0; i--) { /* index 0 is the final message */
 		msgindex = Screen->curtab->msgnum - i;
 		walog(INT, "Printing msg #%d", &msgindex);
@@ -150,8 +141,9 @@ static int count_msg_fill_display(void)
 	rows = 0;
 	msgnum = 0;
 	getnewmsg = 1;
-	/* while there is still space on screen */
-	while (rows < Screen->max_dy) { /* && msgnum < Screen->curtab->msgnum */
+	/* while there is still space on screen
+	 * && msgnum < Screen->curtab->msgnum */
+	while (rows < (Screen->max_dy - 2)) {
 		if (msgnum == Screen->curtab->msgnum) {
 			return msgnum;
 		}
@@ -159,7 +151,8 @@ static int count_msg_fill_display(void)
 		/* count num rows each msg takes */
 		if (getnewmsg) {
 			finalindex = Screen->curtab->msgnum - 1;
-			msglen = strlen(Screen->curtab->msgs[finalindex - msgnum]);
+			msglen = strlen(Screen->curtab->msgs[finalindex
+								- msgnum]);
 			getnewmsg = 0;
 		}
 
@@ -203,7 +196,6 @@ void display_msg(char *text)
 static void displayln(char *text)
 {
 	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", text);
-	// wrefresh(Screen->display); /* TODO reorganize this */
 }
 
 void clr_display(void)
@@ -215,11 +207,9 @@ static void clrwin(WINDOW *win)
 {
 	werase(win);
 	box(win, 0, 0);
-	wrefresh(win);
 }
 
 /* ===== TABBING ====== */
-
 static void addmsg(struct tab *tb, int type, char *text, const void *arg)
 {
 	switch(type) {

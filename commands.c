@@ -38,6 +38,7 @@ int handle_command(char *buffer)
 		clr_display();
 	}
 	else if (rv == SW) {
+		/* TODO make this work on values >9 */
 		char *id = strtok(&buffer[strlen(":sw")], " ");
 		switch_tab(id[0] - '0');
 	}
