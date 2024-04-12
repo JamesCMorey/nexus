@@ -48,7 +48,8 @@ int handle_command(char *buffer)
 
 static void conn_cmd(char *buffer)
 {
-	char *hostname = strtok(&buffer[strlen(":conn")], " ");
+	char *type = strtok(&buffer[strlen(":conn")], " ");
+	char *hostname  = strtok(NULL, " ");
 	char *port  = strtok(NULL, " ");
 
 	if (port == NULL || hostname == NULL) {
@@ -56,13 +57,9 @@ static void conn_cmd(char *buffer)
 		return;
 	}
 
-	int sfd = get_conn(hostname, port);
+	int index = mkconn(TCP, hostname, port);
 
-	if (sfd < 0) {
-		return;
-	}
-
-	mktab(hostname, sfd);
+	mktab(hostname, index);
 	display(STR, "%s", "Connection successful");
 }
 
@@ -75,4 +72,26 @@ int parse_commands(char *buffer)
 	}
 
 	return -1;
+}
+
+void handle_normal(char *text)
+{
+	int rv;
+
+	/* Need to make this cover things like FTP or http */
+	if (curtab_textable()) {
+		rv = send_text(text);
+	}
+	else {
+		display(NOARG, "Cannot send text in this tab", NULL);
+		return;
+	}
+
+	if (rv) {
+		display(NOARG, "Failed to send.", NULL);
+	}
+	else {
+		display(NOARG, text, NULL);
+	}
+
 }

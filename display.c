@@ -15,8 +15,7 @@
 struct tab {
 	/* Name that is displayed in the nav bar for the tab */
 	char tabname[MAX_TABNAME_LEN];
-	int id;
-	int sfd;
+	int index;
 	int unread:1; /* Flag for unseen activity in tab */
 
 	char msgs[MSGS_PER_TAB][MAX_MSG_LEN];
@@ -42,7 +41,7 @@ struct screenState {
 
 	/* tabs organized with file descriptor such that tabs[sfd]; is the tab
 	 * that is used to display communications to and from that socket. */
-	struct tab *tabs[1025]; // tabs[0] is the default
+	struct tab *tabs[1024]; // tabs[0] is the default
 	struct tab *curtab;
 	int maxtab;
 };
@@ -51,12 +50,11 @@ struct screenState {
 static struct screenState *Screen;
 
 /* Handling display */
-void display(int type, char *text, const void *arg); /* TODO remove this */
 static void clrwin(WINDOW *win);
 static void show_tabs(void);
 static void displayln(char *text);
 static void display_tab(struct tab *tb);
-void display_msg(char *text);
+static void display_msg(char *text);
 
 /* Handling tabs */
 static void deltab(struct tab *tb);
@@ -78,14 +76,13 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 	if (c == '\n' && Screen->buffer[0] == ':') {
 		REMOVE_LAST_CHAR(Screen->buffer);
 		rv = handle_command(Screen->buffer);
-
 		memset(Screen->buffer, 0, sizeof(Screen->buffer));
 	}
+
 	/* Normal text handling */
 	else if (c == '\n') {
 		REMOVE_LAST_CHAR(Screen->buffer);
-		display(STR, "%s", Screen->buffer);
-
+		handle_normal(Screen->buffer);
 		memset(Screen->buffer, 0, sizeof(Screen->buffer));
 	}
 
@@ -99,7 +96,7 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 	}
 
 	/* Clear the input field and redraw it, including the box around it. */
-	CLEAR_WIN(Screen->input);
+	clrwin(Screen->input);
 	mvwprintw(Screen->input, 1, 1, "%s", Screen->buffer);
 	wrefresh(Screen->input); /* refresh input */
 
@@ -107,12 +104,28 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 }
 
 /* MISC */
+int curtab_textable()
+{
+	 enum ConnType type = get_conntype(Screen->curtab->index);
+	 if (type == -1) {
+		 walog(INT, "Error in curtab_textable: index %d not found ",
+		 					&Screen->curtab->index);
+
+	 }
+
+	 if (type == IRC || type == TCP) {
+		 return 1;
+	 }
+
+	 return 0;
+}
 
 void display(int type, char *text, const void *arg)
 { /* Add ability to add to tab based off id */
 	addmsg(Screen->curtab, type, text, arg);
 	display_tab(Screen->curtab);
 }
+
 static void display_tab(struct tab *tb)
 {
 	clr_display();
@@ -235,24 +248,13 @@ static void addmsg(struct tab *tb, int type, char *text, const void *arg)
 }
 
 /* create a tab and set it to Screen->curtab */
-void mktab(char *name, int sfd)
+void mktab(char *name, int index)
 {
-	int i;
-	if (sfd > 3) { /* Make up for default fds stdin, stdout, stderr */
-		i = sfd - 3;
-	}
-	else {
-		i = sfd;
-	}
-
-	while (Screen->tabs[i] != NULL) {
-		i++;
-	}
+	int i = index + 1; /* make up for default at tabs[0] */
 
 	Screen->tabs[i] = malloc(sizeof(struct tab));
 	strncpy(Screen->tabs[i]->tabname, name, sizeof(char) * 10);
-	Screen->tabs[i]->id = i;
-	Screen->tabs[i]->sfd = sfd; /* Allows matching network conn to tab */
+	Screen->tabs[i]->index = i;
 	Screen->tabs[i]->y = 0;
 	Screen->tabs[i]->x = 0;
 	Screen->tabs[i]->msgnum = 0;
@@ -268,9 +270,22 @@ void mktab(char *name, int sfd)
 	show_tabs();
 }
 
+int get_curtab_index(void)
+{
+	return Screen->curtab->index;
+}
+
 /* In case more things are added to struct tab */
 static void deltab(struct tab *tb)
 {
+	if (tb->index == Screen->maxtab) {
+		/* - 1 so it doesn't just select the tab being deleted */
+		for (int i = tb->index - 1; i >= 0; i--) {
+			if (Screen->tabs[i] != NULL) {
+				Screen->maxtab = i;
+			}
+		}
+	}
 	free(tb);
 }
 
@@ -285,7 +300,7 @@ static void show_tabs()
 			wattrset(Screen->nav, A_BOLD);
 			mvwprintw(Screen->nav, ++Screen->ny,
 				(Screen->max_nx-strlen(name)-3)/2, "%d :%s",
-						Screen->tabs[i]->id, name);
+						Screen->tabs[i]->index, name);
 			wattroff(Screen->nav, A_BOLD);
 			continue;
 		}
@@ -294,7 +309,7 @@ static void show_tabs()
 			wattrset(Screen->nav, A_ITALIC);
 			mvwprintw(Screen->nav, ++Screen->ny,
 				(Screen->max_nx-strlen(name)-1)/2, "%d %s",
-						Screen->tabs[i]->id, name);
+						Screen->tabs[i]->index, name);
 
 			wattroff(Screen->nav, A_ITALIC);
 			continue;
@@ -303,16 +318,16 @@ static void show_tabs()
 		if (Screen->tabs[i] != NULL) {
 			mvwprintw(Screen->nav, ++Screen->ny,
 				(Screen->max_nx-strlen(name)-1)/2, "%d %s",
-						Screen->tabs[i]->id, name);
+						Screen->tabs[i]->index, name);
 		}
 	}
 	wrefresh(Screen->nav);
 }
 
-void switch_tab(int id)
+void switch_tab(int index)
 {
-	for (int i = id; i <= Screen->maxtab; i++) {
-		if (Screen->tabs[i]->id == id) {
+	for (int i = index; i <= Screen->maxtab; i++) {
+		if (Screen->tabs[i]->index == index) {
 			Screen->curtab = Screen->tabs[i];
 			display_tab(Screen->curtab);
 			show_tabs();
