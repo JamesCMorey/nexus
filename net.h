@@ -8,7 +8,7 @@ enum ConnType {
 	TCP, IRC, HTTP, FTP
 };
 
-const char *CONNTYPES[NUMCONNTYPES];
+extern const char *CONNTYPES[NUMCONNTYPES];
 
 struct conn;
 

@@ -43,6 +43,8 @@ int mkconn(enum ConnType type, char *hostname, char *port)
 	strncpy(c->hostname, hostname, strlen(hostname) + 1);
 	c->sfd = mksfd(hostname, port);
 	c->type = type;
+	/* This intentionally skips of index 0 in the array (that index is taken
+	 * up by the default tab in the tabs array)*/
 	c->index = Net->maxindex + 1;
 
 	if (c->sfd > Net->maxsfd) {
