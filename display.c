@@ -43,7 +43,7 @@ struct screenState {
 	 * that is used to display communications to and from that socket. */
 	struct tab *tabs[1024]; // tabs[0] is the default
 	struct tab *curtab;
-	int maxtab;
+	int maxindex;
 };
 
 /* global struct to hold all information, windows, and input from the screen */
@@ -55,9 +55,9 @@ static void show_tabs(void);
 static void displayln(char *text);
 static void display_tab(struct tab *tb);
 static void display_msg(char *text);
+static struct tab *ind_get_tab(int tab_index);
 
 /* Handling tabs */
-static void deltab(struct tab *tb);
 static void addmsg(struct tab *tb, int type, char *text, const void *arg);
 
 /* Misc */
@@ -104,6 +104,26 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 }
 
 /* MISC */
+int get_curtab_index(void)
+{
+	return Screen->curtab->index;
+}
+
+static struct tab *ind_get_tab(int tab_index)
+{
+	/* +1 to convert from tabindex to connindex conns[0] -> tabs[1] */
+	if (Screen->tabs[tab_index] == NULL) {
+		return NULL;
+	}
+
+	return Screen->tabs[tab_index];
+}
+
+void set_tab_unread(struct tab *tb)
+{
+
+}
+
 int curtab_textable()
 {
 	 enum ConnType type = get_conntype(Screen->curtab->index);
@@ -262,31 +282,26 @@ void mktab(char *name, int index)
 	// getyx(Screen->display, Screen->curtab->y, Screen->curtab->x);
 
 	Screen->curtab = Screen->tabs[i];
-	if (i > Screen->maxtab) {
-		Screen->maxtab = i;
+	if (i > Screen->maxindex) {
+		Screen->maxindex = i;
 	}
 
 	display_tab(Screen->curtab);
 	show_tabs();
 }
 
-int get_curtab_index(void)
-{
-	return Screen->curtab->index;
-}
-
 /* In case more things are added to struct tab */
-static void deltab(struct tab *tb)
+void deltab(int index)
 {
-	if (tb->index == Screen->maxtab) {
+	if (Screen->tabs[index]->index == Screen->maxindex) {
 		/* - 1 so it doesn't just select the tab being deleted */
-		for (int i = tb->index - 1; i >= 0; i--) {
+		for (int i = index - 1; i >= 0; i--) {
 			if (Screen->tabs[i] != NULL) {
-				Screen->maxtab = i;
+				Screen->maxindex = i;
 			}
 		}
 	}
-	free(tb);
+	free(Screen->tabs[index]);
 }
 
 static void show_tabs()
@@ -294,7 +309,7 @@ static void show_tabs()
 	clrwin(Screen->nav);
 	Screen->ny = 0;
 
-	for (int i = 0; i <= Screen->maxtab; i++) {
+	for (int i = 0; i <= Screen->maxindex; i++) {
 		char *name = Screen->tabs[i]->tabname;
 		if (Screen->tabs[i] == Screen->curtab) {
 			wattrset(Screen->nav, A_BOLD);
@@ -326,7 +341,7 @@ static void show_tabs()
 
 void switch_tab(int index)
 {
-	for (int i = index; i <= Screen->maxtab; i++) {
+	for (int i = index; i <= Screen->maxindex; i++) {
 		if (Screen->tabs[i]->index == index) {
 			Screen->curtab = Screen->tabs[i];
 			display_tab(Screen->curtab);
@@ -355,7 +370,7 @@ void init_screen(void)
 
 	// initializing variables
 	Screen = malloc(sizeof(struct screenState));
-	Screen->maxtab = 0;
+	Screen->maxindex = 0;
 	getmaxyx(stdscr, Screen->rows, Screen->cols);
 
 	int cols = Screen->cols;
@@ -402,9 +417,9 @@ void stop_screen(void)
 	delwin(Screen->nav);
 	delwin(Screen->input);
 
-	for (int i = 0; i <= Screen->maxtab; i++) {
+	for (int i = 0; i <= Screen->maxindex; i++) {
 		if (Screen->tabs[i] != NULL) {
-			deltab(Screen->tabs[i]);
+			deltab(i);
 		}
 	}
 

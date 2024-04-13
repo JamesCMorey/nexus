@@ -11,3 +11,4 @@ void switch_tab(int index);
 void clr_display(void);
 void init_screen();
 void stop_screen();
+void deltab(int index);

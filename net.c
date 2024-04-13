@@ -23,39 +23,43 @@ struct netState {
 	fd_set readfds;
 	fd_set writefds;
 	int maxsfd;
-	int next_open_index;
+	int maxindex;
 	int conn_count;
 	struct conn *conns[1024]; /* TODO implement position reuse */
 	struct conn *curconn;
 };
 
-static struct conn *get_conn(int index);
+static struct conn *ind_get_conn(int index);
 
 struct netState *Net;
+
+const char *CONNTYPES[NUMCONNTYPES] = { "tcp", "irc", "http", "ftp" };
 
 int mkconn(enum ConnType type, char *hostname, char *port)
 {
 	struct conn *c = malloc(sizeof(struct conn));
 
-	Net->conns[Net->next_open_index] = c;
+	c->hostname = malloc(strlen(hostname) + 1);
+	strncpy(c->hostname, hostname, strlen(hostname) + 1);
 	c->sfd = mksfd(hostname, port);
 	c->type = type;
-	c->index = Net->next_open_index;
+	c->index = Net->maxindex + 1;
 
 	if (c->sfd > Net->maxsfd) {
 		Net->maxsfd = c->sfd;
 	}
 
 	FD_SET(c->sfd, &Net->readfds);
+	Net->conns[Net->maxindex + 1] = c;
 	Net->curconn = c;
-	Net->next_open_index++;
+	Net->maxindex++;
 	Net->conn_count++;
 	return c->index;
 }
 
 int get_conntype(int index)
 {
-	struct conn *c = get_conn(index);
+	struct conn *c = ind_get_conn(index);
 	if (c == NULL) {
 		return -1;
 	}
@@ -63,25 +67,32 @@ int get_conntype(int index)
 	return c->type;
 }
 
-static struct conn *get_conn(int index)
+static struct conn *ind_get_conn(int tab_index)
 {
-	/* - 1 to convert from tabindex to connindex */
-	if (Net->conns[index - 1] == NULL) {
+	/* - 1 to convert from tabindex to connindex tabs[1] -> conns[0] */
+	if (Net->conns[tab_index - 1] == NULL) {
 		return NULL;
 	}
 
-	return Net->conns[index - 1];
+	return Net->conns[tab_index - 1];
 }
 
-void switch_conn(int sfd)
+/* TODO implement this so when a sfd is ready to be read, the connection and
+ * thereby the index of the tab can be found */
+struct conn *sfd_get_conn(int sfd)
 {
-	for (int i = 0; i < Net->next_open_index; i++) {
-		if(Net->conns[i]->sfd == sfd) {
-			Net->curconn = Net->conns[i];
-			return;
-		}
+	return NULL;
+}
+
+void switch_conn(int index)
+{
+	struct conn *c = ind_get_conn(index);
+	if (c == NULL) {
+		display(NOARG, "Could not switch conn", NULL);
+		return;
 	}
-	display(INT, "sfd (%d) could not be found in netState.", &sfd);
+
+	Net->curconn = c;
 }
 
 int send_text(char *text)
@@ -117,20 +128,26 @@ void init_net()
 	Net->maxsfd = fileno(stdin);
 	/* Setting next_open_index to 1 makes up for the default first tab in
 	 * Screen->tabs[] in display.c. */
-	Net->next_open_index = 1;
+	Net->maxindex = 0;
 	Net->conn_count = 0;
 
 	wlog("Network initialization completed.");
+}
+
+void delconn(int index)
+{
+	close(Net->conns[index]->sfd);
+	free(Net->conns[index]);
+
 }
 
 void stop_net()
 {
 	wlog("Shutting down network...");
 
-	for (int i = 0; i <= Net->maxsfd; i++) {
-		if(Net->conns[i] != NULL) {
-			close(Net->conns[i]->sfd);
-			free(Net->conns[i]);
+	for (int i = 0; i <= Net->maxindex; i++) {
+		if(ind_get_conn(i) != NULL) {
+			delconn(i);
 		}
 	}
 

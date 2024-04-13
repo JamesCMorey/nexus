@@ -2,12 +2,18 @@
 
 #include <sys/select.h>
 
+#define NUMCONNTYPES 4
+
 enum ConnType {
 	TCP, IRC, HTTP, FTP
 };
 
+const char *CONNTYPES[NUMCONNTYPES];
+
 struct conn;
 
+void delconn(int index);
+struct conn *sfd_get_conn(int sfd);
 int mkconn(enum ConnType type, char *hostname, char *port);
 int get_conntype(int index);
 int send_text(char *text);

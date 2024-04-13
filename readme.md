@@ -7,4 +7,4 @@ Protocols like IRC, HTTP, ftp, ssh, etc. may be implemented later on.
 
 **TODO**
 
-Add tabbing feature to TUI alongside message send feature.
+Fix index offset between conn index and tab index

@@ -5,17 +5,18 @@
 #include "commands.h"
 #include "display.h"
 
-#define NUMCOMMANDS 5
+#define NUMCOMMANDS 6
 
 static const char *COMMANDS[NUMCOMMANDS] = {	"exit", "conn", "disc", "clr",
-						"sw"	};
+						"sw", "close"	};
 
 enum command_code {
 	EXIT, CONN, DISC, CLR,
-	SW
+	SW, CLOSE
 };
 
 static void conn_cmd(char *buffer);
+static enum ConnType parse_conntype(char *buffer);
 
 int handle_command(char *buffer)
 {
@@ -42,6 +43,14 @@ int handle_command(char *buffer)
 		char *id = strtok(&buffer[strlen(":sw")], " ");
 		switch_tab(id[0] - '0');
 	}
+	else if (rv == CLOSE) {
+		int index = get_curtab_index();
+		display(INT, "Removing index %d", &index);
+		deltab(index);
+		display(NOARG, "Curtab deleted", NULL);
+		delconn(index);
+		display(NOARG, "Conn deleted", NULL);
+	}
 
 	return 0;
 }
@@ -49,6 +58,7 @@ int handle_command(char *buffer)
 static void conn_cmd(char *buffer)
 {
 	char *type = strtok(&buffer[strlen(":conn")], " ");
+	enum ConnType protocol = parse_conntype(type);
 	char *hostname  = strtok(NULL, " ");
 	char *port  = strtok(NULL, " ");
 
@@ -56,11 +66,23 @@ static void conn_cmd(char *buffer)
 		display(NOARG, "You need to enter the hostname and port", NULL);
 		return;
 	}
-
-	int index = mkconn(TCP, hostname, port);
+	display(INT, "protocol: %d", &protocol);
+	int index = mkconn(protocol, hostname, port);
 
 	mktab(hostname, index);
 	display(STR, "%s", "Connection successful");
+}
+
+static enum ConnType parse_conntype(char *buffer)
+{
+	for (int i = 0; i < NUMCONNTYPES; i++) {
+		if (!strncmp(buffer, CONNTYPES[i], strlen(CONNTYPES[i]))) {
+			return i;
+		}
+	}
+	display(STR, "protocol: %s", buffer);
+
+	return -1;
 }
 
 int parse_commands(char *buffer)
