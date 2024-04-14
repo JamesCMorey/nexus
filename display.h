@@ -9,6 +9,7 @@ int handle_input();
 void display(char *text, ...);
 void add_to_default(char *text, ...);
 void add_to_tab(int index, char *text, ...);
+void size_add_to_tab(int index, char *text, int size, ...);
 void clr_display(void);
 
 /* ====== TABBING  ====== */

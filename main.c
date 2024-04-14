@@ -42,9 +42,6 @@ int main(int argc, char *argv[])
 				}
 
 				rv = read_conn(index);
-				if (rv != -1) {
-					add_to_tab(index, buf);
-				}
 			}
 		}
 	}

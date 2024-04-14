@@ -60,6 +60,7 @@ static int count_msg_fill_display(void);
 
 /* Handling tabs */
 static void addmsg(struct tab *tb, char *text, va_list args);
+static void size_addmsg(struct tab *tb, char *text, int size, va_list args);
 static struct tab *ind_get_tab(int tab_index);
 
 /* ====== INPUT ====== */
@@ -112,6 +113,18 @@ void display(char *text, ...)
 	va_end(args);
 
 	display_tab(Screen->curtab);
+}
+
+void size_add_to_tab(int index, char *text, int size, ...)
+{
+	va_list args;
+
+	va_start(args, size);
+	size_addmsg(Screen->tabs[index], text, size, args);
+	va_end(args);
+	if (Screen->tabs[index] == Screen->curtab) {
+		display_tab(Screen->curtab);
+	}
 }
 
 void add_to_tab(int index, char *text, ...)
@@ -193,8 +206,6 @@ static int count_msg_fill_display(void)
 
 void display_msg(char *text)
 {
-	wlog("strlen text display_msg %d", strlen(text));
-
 	int lenprinted;
 	int i = 0;
 	char substring[Screen->max_dx - 2];
@@ -204,7 +215,6 @@ void display_msg(char *text)
 		strncpy(substring, text + i, sizeof(substring));
 		substring[Screen->max_dx - 2] = '\0';
 
-		wlog("strlen substring display_msg %d", strlen(substring));
 		displayln(substring);
 
 		/* If lenprintd is less than the width, that means the msg
@@ -218,7 +228,6 @@ static void displayln(char *text)
 {
 	/* Remove carriage returns */
 	char buf[Screen->max_dx - 2];
-	wlog("strlen text displayln %d", strlen(text));
 
 	char *src, *dst;
 	src = text;
@@ -226,12 +235,11 @@ static void displayln(char *text)
 	for (; *src != '\0'; src++) {
 		*dst = *src;
 		if (*src != '\n' && *src != '\r') {
-			wlog("'%c' is good", *src);
+			wlog("'%d' is good", *src);
 			dst++;
 		}
 	}
 	*dst = '\0';
-	wlog("strlen buf displayln %d", strlen(buf));
 	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", buf);
 }
 
@@ -310,6 +318,17 @@ int curtab_textable()
 void set_tab_unread(struct tab *tb)
 {
 
+}
+
+static void size_addmsg(struct tab *tb, char *text, int size, va_list args)
+{
+	if (size < MAX_MSG_LEN) {
+		vsnprintf(tb->msgs[tb->msgnum], size, text, args);
+	}
+	else {
+		vsnprintf(tb->msgs[tb->msgnum], MAX_MSG_LEN, text, args);
+	}
+	tb->msgnum++;
 }
 
 static void addmsg(struct tab *tb, char *text, va_list args)

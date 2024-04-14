@@ -162,7 +162,7 @@ int recv_text(int index)
 		return -1;
 	}
 
-	add_to_tab(index, buf);
+	size_add_to_tab(index, buf, rv);
 	return 0;
 }
 
