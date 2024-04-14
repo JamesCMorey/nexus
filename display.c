@@ -121,6 +121,9 @@ void add_to_tab(int index, char *text, ...)
 	va_start(args, text);
 	addmsg(Screen->tabs[index], text, args);
 	va_end(args);
+	if (Screen->tabs[index] == Screen->curtab) {
+		display_tab(Screen->curtab);
+	}
 }
 
 void add_to_default(char *text, ...)

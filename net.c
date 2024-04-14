@@ -145,14 +145,14 @@ int read_conn(int index)
 	return rv;
 }
 
-int recv_text()
+int recv_text(int index)
 {
 	int rv;
 	char buf[500];
-	rv = recv(Net->curconn->sfd, buf, sizeof(buf), 0);
+	rv = recv(Net->conns[index]->sfd, buf, sizeof(buf), 0);
 
 	if (rv == 0) {
-		display("Connection closed by peer.");
+		add_to_tab(index, "Connection closed by peer.");
 		delconn(Net->curconn->index);
 		return -1;
 	}
@@ -162,7 +162,7 @@ int recv_text()
 		return -1;
 	}
 
-	display("%s", buf);
+	add_to_tab(index, buf);
 	return 0;
 }
 
