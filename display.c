@@ -56,15 +56,13 @@ static void clrwin(WINDOW *win);
 static void displayln(char *text);
 static void display_tab(struct tab *tb);
 static void display_msg(char *text);
-static struct tab *ind_get_tab(int tab_index);
+static int count_msg_fill_display(void);
 
 /* Handling tabs */
 static void addmsg(struct tab *tb, char *text, va_list args);
+static struct tab *ind_get_tab(int tab_index);
 
-/* Misc */
-static int count_msg_fill_display(void);
-
-/* INPUT */
+/* ====== INPUT ====== */
 int handle_input() /* TODO add check to ensure input is <500 chars */
 {
 	int rv = 0;
@@ -104,43 +102,7 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 	return rv;
 }
 
-/* MISC */
-int get_curtab_index(void)
-{
-	return Screen->curtab->index;
-}
-
-static struct tab *ind_get_tab(int index)
-{
-	/* +1 to convert from tabindex to connindex conns[0] -> tabs[1] */
-	if (Screen->tabs[index] == NULL) {
-		return NULL;
-	}
-
-	return Screen->tabs[index];
-}
-
-void set_tab_unread(struct tab *tb)
-{
-
-}
-
-int curtab_textable()
-{
-	 enum ConnType type = get_conntype(Screen->curtab->index);
-	 if (type == -1) {
-		 wlog("Error in curtab_textable: index %d not found ",
-		 					Screen->curtab->index);
-
-	 }
-
-	 if (type == IRC || type == TCP) {
-		 return 1;
-	 }
-
-	 return 0;
-}
-
+/* ===== DISPLAY ====== */
 void display(char *text, ...)
 { /* Add ability to add to tab based off id */
 	va_list args;
@@ -255,13 +217,13 @@ static void clrwin(WINDOW *win)
 	box(win, 0, 0);
 }
 
-/* ===== TABBING ====== */
-static void addmsg(struct tab *tb, char *text, va_list args)
+/*
+void quiet_display()
 {
-	vsnprintf(tb->msgs[tb->msgnum], MAX_MSG_LEN, text, args);
-	tb->msgnum++;
 }
+*/
 
+/* ===== TABBING ====== */
 /* create a tab and set it to Screen->curtab */
 void mktab(char *name, int index)
 {
@@ -274,8 +236,6 @@ void mktab(char *name, int index)
 	Screen->tabs[i]->y = 0;
 	Screen->tabs[i]->x = 0;
 	Screen->tabs[i]->msgnum = 0;
-
-	// getyx(Screen->display, Screen->curtab->y, Screen->curtab->x);
 
 	Screen->curtab = Screen->tabs[i];
 	if (i > Screen->maxindex) {
@@ -306,6 +266,48 @@ void deltab(int index)
 
 	free(Screen->tabs[index]);
 	Screen->tabs[index] = NULL;
+}
+
+int curtab_textable()
+{
+	 enum ConnType type = get_conntype(Screen->curtab->index);
+	 if (type == -1) {
+		 wlog("Error in curtab_textable: index %d not found ",
+		 					Screen->curtab->index);
+
+	 }
+
+	 if (type == IRC || type == TCP) {
+		 return 1;
+	 }
+
+	 return 0;
+}
+
+void set_tab_unread(struct tab *tb)
+{
+
+}
+
+static void addmsg(struct tab *tb, char *text, va_list args)
+{
+	vsnprintf(tb->msgs[tb->msgnum], MAX_MSG_LEN, text, args);
+	tb->msgnum++;
+}
+
+static struct tab *ind_get_tab(int index)
+{
+	/* +1 to convert from tabindex to connindex conns[0] -> tabs[1] */
+	if (Screen->tabs[index] == NULL) {
+		return NULL;
+	}
+
+	return Screen->tabs[index];
+}
+
+int get_curtab_index(void)
+{
+	return Screen->curtab->index;
 }
 
 void show_tabs()
@@ -354,13 +356,6 @@ void switch_tab(int index)
 		}
 	}
 }
-
-/*
-void quiet_display()
-{
-}
-*/
-
 
 /* ====== INIT AND CLEANUP ====== */
 void init_screen(void)
