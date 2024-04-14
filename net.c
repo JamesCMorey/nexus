@@ -46,13 +46,13 @@ int mkconn(enum ConnType type, char *hostname, char *port)
 	/* This intentionally skips of index 0 in the array (that index is taken
 	 * up by the default tab in the tabs array)*/
 	c->index = Net->maxindex + 1;
+	Net->conns[Net->maxindex + 1] = c;
 
 	if (c->sfd > Net->maxsfd) {
 		Net->maxsfd = c->sfd;
 	}
 
 	FD_SET(c->sfd, &Net->readfds);
-	Net->conns[Net->maxindex + 1] = c;
 	Net->curconn = c;
 	Net->maxindex++;
 	Net->conn_count++;
@@ -81,9 +81,15 @@ static struct conn *ind_get_conn(int index)
 
 /* TODO implement this so when a sfd is ready to be read, the connection and
  * thereby the index of the tab can be found */
-struct conn *sfd_get_conn(int sfd)
+int sfd_get_conn_index(int sfd)
 {
-	return NULL;
+	for (int i = 1; i <= Net->maxsfd; i++) {
+		if (Net->conns[i] != NULL && Net->conns[i]->sfd == sfd) {
+			return Net->conns[i]->index;
+		}
+	}
+
+	return -1;
 }
 
 void switch_conn(int index)
@@ -97,10 +103,17 @@ void switch_conn(int index)
 	Net->curconn = c;
 }
 
+/* TODO restrict message size */
 int send_text(char *text)
 {
 	int rv;
 	char msg[strlen(text) + 3];
+
+	if (Net->curconn == NULL) {
+		display("No connection specified");
+		return -1;
+	}
+
 	strncpy(msg, text, strlen(text));
 	msg[strlen(text)] = '\r';
 	msg[strlen(text) + 1] = '\n';
@@ -113,6 +126,44 @@ int send_text(char *text)
 	}
 
 	return -1;
+}
+
+int read_conn(int index)
+{
+	int rv;
+	enum ConnType type = Net->conns[index]->type;
+
+	switch(type) {
+	case TCP:
+		rv = recv_text();
+		break;
+	default:
+		display("Conn type not found.");
+		rv = -1;
+	}
+
+	return rv;
+}
+
+int recv_text()
+{
+	int rv;
+	char buf[500];
+	rv = recv(Net->curconn->sfd, buf, sizeof(buf), 0);
+
+	if (rv == 0) {
+		display("Connection closed by peer.");
+		delconn(Net->curconn->index);
+		return -1;
+	}
+
+	if (rv < 0) {
+		display("An error has occurred during message reception.");
+		return -1;
+	}
+
+	display("%s", buf);
+	return 0;
 }
 
 fd_set get_readfds(void)
@@ -143,9 +194,31 @@ void init_net()
 
 void delconn(int index)
 {
+	if (Net->conns[index] == NULL) {
+		return;
+	}
+
+	for (int i = index - 1; i >= 0; i--) {
+		if (Net->conns[index]->sfd == Net->maxsfd &&
+							Net->conns[i] != NULL) {
+			Net->maxsfd = Net->conns[i]->sfd;
+		}
+
+		if (Net->conns[i] != NULL) {
+			Net->curconn = Net->conns[i];
+			break;
+		}
+	}
+
+	FD_CLR(Net->conns[index]->sfd, &Net->readfds);
 	close(Net->conns[index]->sfd);
 	free(Net->conns[index]);
+	Net->conns[index] = NULL;
+}
 
+int get_maxsfd(void)
+{
+	return Net->maxsfd;
 }
 
 void stop_net()

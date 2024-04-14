@@ -12,9 +12,12 @@ extern const char *CONNTYPES[NUMCONNTYPES];
 
 struct conn;
 
+int recv_text();
+int read_conn(int index);
+int get_maxsfd(void);
+int sfd_get_conn_index(int sfd);
 void switch_conn(int index);
 void delconn(int index);
-struct conn *sfd_get_conn(int sfd);
 int mkconn(enum ConnType type, char *hostname, char *port);
 int get_conntype(int index);
 int send_text(char *text);

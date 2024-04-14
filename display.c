@@ -114,6 +114,15 @@ void display(char *text, ...)
 	display_tab(Screen->curtab);
 }
 
+void add_to_tab(int index, char *text, ...)
+{
+	va_list args;
+
+	va_start(args, text);
+	addmsg(Screen->tabs[index], text, args);
+	va_end(args);
+}
+
 void add_to_default(char *text, ...)
 { /* Add ability to add to tab based off id */
 	va_list args;
@@ -181,17 +190,18 @@ static int count_msg_fill_display(void)
 
 void display_msg(char *text)
 {
+	wlog("strlen text display_msg %d", strlen(text));
+
 	int lenprinted;
 	int i = 0;
-	char substring[Screen->max_dx - 2 + 1];
-	int tmp = sizeof(substring);
-	wlog("sizeof(substring): %d", tmp);
+	char substring[Screen->max_dx - 2];
 
 	lenprinted = (Screen->max_dx - 2);
 	while(lenprinted == (Screen->max_dx - 2)) {
 		strncpy(substring, text + i, sizeof(substring));
 		substring[Screen->max_dx - 2] = '\0';
 
+		wlog("strlen substring display_msg %d", strlen(substring));
 		displayln(substring);
 
 		/* If lenprintd is less than the width, that means the msg
@@ -203,7 +213,23 @@ void display_msg(char *text)
 
 static void displayln(char *text)
 {
-	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", text);
+	/* Remove carriage returns */
+	char buf[Screen->max_dx - 2];
+	wlog("strlen text displayln %d", strlen(text));
+
+	char *src, *dst;
+	src = text;
+	dst = buf;
+	for (; *src != '\0'; src++) {
+		*dst = *src;
+		if (*src != '\n' && *src != '\r') {
+			wlog("'%c' is good", *src);
+			dst++;
+		}
+	}
+	*dst = '\0';
+	wlog("strlen buf displayln %d", strlen(buf));
+	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", buf);
 }
 
 void clr_display(void)
@@ -216,12 +242,6 @@ static void clrwin(WINDOW *win)
 	werase(win);
 	box(win, 0, 0);
 }
-
-/*
-void quiet_display()
-{
-}
-*/
 
 /* ===== TABBING ====== */
 /* create a tab and set it to Screen->curtab */
@@ -347,6 +367,7 @@ void show_tabs()
 
 void switch_tab(int index)
 {
+	/* Use visual (displayed) index to locate tab to switch to */
 	for (int i = index; i <= Screen->maxindex; i++) {
 		if (Screen->tabs[i]->index == index) {
 			Screen->curtab = Screen->tabs[i];
@@ -405,8 +426,8 @@ void init_screen(void)
 	wmove(Screen->input, 1, 1);
 	wrefresh(Screen->input);
 
-	wmove(Screen->input, 1, 1);
 	show_tabs();
+	wmove(Screen->input, 1, 1);
 
 	wlog("Screen initialization complete.");
 }
