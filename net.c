@@ -90,7 +90,7 @@ void switch_conn(int index)
 {
 	struct conn *c = ind_get_conn(index);
 	if (c == NULL) {
-		display(NOARG, "Could not switch conn", NULL);
+		display("Could not switch conn");
 		return;
 	}
 
@@ -100,10 +100,14 @@ void switch_conn(int index)
 int send_text(char *text)
 {
 	int rv;
+	char msg[strlen(text) + 2];
+	strncpy(msg, text, strlen(text));
+	msg[strlen(text)] = '\n';
+	msg[strlen(text) + 1] = '\0';
 
-	rv = send(Net->curconn->sfd, text, strlen(text), 0);
-	if (rv == strlen(text)) {
-		display(INT, "Sent %d bytes to ---", &rv);
+	rv = send(Net->curconn->sfd, msg, strlen(msg), 0);
+	if (rv == strlen(msg)) {
+		display("Sent %d bytes to %s", rv, Net->curconn->hostname);
 		return 0;
 	}
 
@@ -168,7 +172,7 @@ int mksfd(char *hostname, char *port)
 
 	rv = getaddrinfo(hostname, port, &hints, &res);
 	if (rv) {
-		display(STR, "getaddrinfo failed: %s", gai_strerror(rv));
+		display("getaddrinfo failed: %s", gai_strerror(rv));
 		return -1;
 	}
 
@@ -177,13 +181,13 @@ int mksfd(char *hostname, char *port)
 							itr->ai_protocol);
 
 		if (sfd == -1) {
-			display(NOARG, "Socket creation failed...", NULL);
+			display("Socket creation failed...");
 			continue;
 		}
 
 
 		if (connect(sfd, itr->ai_addr, itr->ai_addrlen) != -1) {
-			display(NOARG, "Connection success.", NULL);
+			display("Connection success.");
 			break; // success
 		}
 
@@ -192,14 +196,14 @@ int mksfd(char *hostname, char *port)
 	}
 
 	if (itr == NULL) {
-		display(NOARG, "Failed to create connection.", NULL);
+		display("Failed to create connection.");
 		return -1;
 	}
 
 	char info[100];
 	getnameinfo(itr->ai_addr, itr->ai_addrlen, info, 100, 0, 0,
 								NI_NUMERICHOST);
-	display(STR, "Connected to server at %s.", info);
+	display("Connected to server at %s.", info);
 
 	freeaddrinfo(res);
 	return sfd;

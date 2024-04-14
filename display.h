@@ -5,7 +5,7 @@
 int curtab_textable();
 int get_curtab_index(void);
 int handle_input();
-void display(int type, char *text, const void *arg);
+void display(char *text, ...);
 void mktab(char *hostname, int sfd);
 void switch_tab(int index);
 void clr_display(void);

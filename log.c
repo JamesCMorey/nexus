@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdarg.h>
 #include "log.h"
 
 FILE *logfd;
@@ -17,38 +18,18 @@ void stop_log()
 	wlog("-------------------------------------------------------------");
 	fclose(logfd);
 }
-void wlog(char *text)
+void wlog(char *text, ...)
 {
+	va_list args;
+
 	fprintf(logfd, "%s: ", timestamp());
-	fprintf(logfd, "%s", text);
+
+	va_start(args, text);
+	vfprintf(logfd, text, args);
+	va_end(args);
+
 	fprintf(logfd, "\r\n");
-	fflush(logfd);
-}
 
-void walog(int type, char *text, const void *arg)
-{
-	switch(type) {
-	case NOARG:
-		fprintf(logfd, "%s: ", timestamp());
-		fprintf(logfd, "%s", text);
-		break;
-
-	case INT:
-		fprintf(logfd, "%s: ", timestamp());
-		fprintf(logfd, text, *(int *)arg);
-		break;
-
-	case STR:
-		fprintf(logfd, "%s: ", timestamp());
-		fprintf(logfd, text, (char *)arg);
-		break;
-
-	default:
-		fprintf(logfd, "%s: ", timestamp());
-		fprintf(logfd, "Invalid log type (%s:%d)", __FILE__, __LINE__);
-	}
-
-	fprintf(logfd ,"\r\n");
 	fflush(logfd);
 }
 

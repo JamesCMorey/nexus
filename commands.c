@@ -25,7 +25,7 @@ int handle_command(char *buffer)
 	rv = parse_commands(buffer);
 
 	if(rv == -1) {
-		display(STR, "Command not found: %s", buffer);
+		display("Command not found: %s", buffer);
 	}
 	else if (rv == EXIT) {
 		return -1;
@@ -45,11 +45,11 @@ int handle_command(char *buffer)
 	}
 	else if (rv == CLOSE) {
 		int index = get_curtab_index();
-		display(INT, "Removing index %d", &index);
+		display("Removing index %d", index);
 		deltab(index);
-		display(NOARG, "Curtab deleted", NULL);
+		display("Curtab deleted", NULL);
 		delconn(index);
-		display(NOARG, "Conn deleted", NULL);
+		display("Conn deleted", NULL);
 	}
 
 	return 0;
@@ -57,30 +57,39 @@ int handle_command(char *buffer)
 
 static void conn_cmd(char *buffer)
 {
-	char *type = strtok(&buffer[strlen(":conn")], " ");
-	enum ConnType protocol = parse_conntype(type);
-	char *hostname  = strtok(NULL, " ");
+	char *hostname = strtok(&buffer[strlen(":conn")], " ");
 	char *port  = strtok(NULL, " ");
+	char *type  = strtok(NULL, " ");
+	enum ConnType protocol = parse_conntype(type);
 
 	if (port == NULL || hostname == NULL) {
-		display(NOARG, "You need to enter the hostname and port", NULL);
+		display("You need to enter the hostname and port", NULL);
 		return;
 	}
-	display(INT, "protocol: %d", &protocol);
-	int index = mkconn(protocol, hostname, port);
+
+	int index;
+	if (type == NULL) {
+		index = mkconn(TCP, hostname, port);
+	}
+	else {
+		index = mkconn(protocol, hostname, port);
+	}
 
 	mktab(hostname, index);
-	display(STR, "%s", "Connection successful");
 }
 
 static enum ConnType parse_conntype(char *buffer)
 {
+	if (buffer == NULL) {
+		return -1;
+	}
+
 	for (int i = 0; i < NUMCONNTYPES; i++) {
 		if (!strncmp(buffer, CONNTYPES[i], strlen(CONNTYPES[i]))) {
 			return i;
 		}
 	}
-	display(STR, "protocol: %s", buffer);
+	display("protocol: %s", buffer);
 
 	return -1;
 }
@@ -105,15 +114,15 @@ void handle_normal(char *text)
 		rv = send_text(text);
 	}
 	else {
-		display(NOARG, "Cannot send text in this tab", NULL);
+		display("Cannot send text in this tab", NULL);
 		return;
 	}
 
 	if (rv) {
-		display(NOARG, "Failed to send.", NULL);
+		display("Failed to send.", NULL);
 	}
 	else {
-		display(NOARG, text, NULL);
+		display(text, NULL);
 	}
 
 }
