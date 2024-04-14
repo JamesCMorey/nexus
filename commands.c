@@ -5,17 +5,21 @@
 #include "commands.h"
 #include "display.h"
 
-#define NUMCOMMANDS 6
+#define NUMCOMMANDS 7
 
 static const char *COMMANDS[NUMCOMMANDS] = {	"exit", "conn", "disc", "clr",
-						"sw", "close"	};
+						"sw", "close", "send"	};
 
 enum command_code {
 	EXIT, CONN, DISC, CLR,
-	SWITCH, CLOSE
+	SWITCH, CLOSE, SEND
 };
 
 static void conn_cmd(char *buffer);
+static void switch_cmd(char *buffer);
+static void close_cmd(char *buffer);
+static void send_cmd(char *buffer);
+
 static enum ConnType parse_conntype(char *buffer);
 
 int handle_command(char *buffer)
@@ -23,47 +27,70 @@ int handle_command(char *buffer)
 	int rv;
 
 	rv = parse_commands(buffer);
-
-	if(rv == -1) {
+	switch(rv) {
+	case -1:
 		display("Command not found: %s", buffer);
-	}
-	else if (rv == EXIT) {
+		break;
+
+	case EXIT:
 		return -1;
-	}
 
-	else if (rv == CONN) {
+	case CONN:
 		conn_cmd(buffer);
-	}
+		break;
 
-	else if (rv == CLR) {
+	case CLR:
 		clr_display();
-	}
-	else if (rv == SWITCH) {
-		/* TODO make this work on values >9 */
-		char *id = strtok(&buffer[strlen(":sw")], " ");
-		if (id == NULL) {
-			display("No tab selected");
-			return 0;
-		}
-		switch_tab(atoi(id));
+		break;
 
-		if (atoi(id) != 0) {
-			switch_conn(atoi(id));
-		}
-	}
-	else if (rv == CLOSE) {
-		int index = get_curtab_index();
-		if (index == 0) {
-			display("Cannot close the default tab... Did you mean \
-to :exit?");
-			return 0;
-		}
-		deltab(index);
-		delconn(index);
-		show_tabs();
+	case SWITCH:
+		switch_cmd(buffer);
+		break;
+
+	case CLOSE:
+		close_cmd(buffer);
+		break;
+
+	case SEND:
+		send_cmd(buffer);
+		break;
+
+	default:
+		display("Somehow the default case in handle_command was run");
 	}
 
 	return 0;
+}
+
+static void send_cmd(char *buffer)
+{
+	return;
+}
+
+static void switch_cmd(char *buffer)
+{
+	char *id = strtok(&buffer[strlen(":sw")], " ");
+	if (id == NULL) {
+		display("No tab selected");
+		return;
+	}
+	switch_tab(atoi(id));
+
+	if (atoi(id) != 0) {
+		switch_conn(atoi(id));
+	}
+}
+
+static void close_cmd(char *buffer)
+{
+	int index = get_curtab_index();
+	if (index == 0) {
+		display("Cannot close default... Did you mean to :exit?");
+		return;
+	}
+	deltab(index);
+	delconn(index);
+	show_tabs();
 }
 
 static void conn_cmd(char *buffer)

@@ -10,7 +10,6 @@
 
 int main(int argc, char *argv[])
 {
-	int rv;
 	init_log("z");
 	init_net();
 	init_screen();
@@ -18,7 +17,6 @@ int main(int argc, char *argv[])
 	int maxsfd;
 	fd_set readfds;
 	int index;
-	char buf[MSGSIZE];
 	while(1) {
 		maxsfd = get_maxsfd();
 		readfds = get_readfds();
@@ -41,7 +39,7 @@ int main(int argc, char *argv[])
 					continue;
 				}
 
-				rv = read_conn(index);
+				read_conn(index);
 			}
 		}
 	}
