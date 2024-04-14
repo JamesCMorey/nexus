@@ -96,7 +96,6 @@ void switch_conn(int index)
 {
 	struct conn *c = ind_get_conn(index);
 	if (c == NULL) {
-		display("Could not switch conn");
 		return;
 	}
 

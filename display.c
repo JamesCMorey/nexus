@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ncurses.h>
 #include <stdarg.h>
+#include <locale.h>
 #include "display.h"
 #include "commands.h"
 #include "log.h"
@@ -12,6 +13,7 @@
 #define MAX_TABNAME_LEN 10
 #define MSGS_PER_TAB 16384
 #define MAX_MSG_LEN 500
+#define DISPLAY_WIDTH Screen->max_dx - 2
 
 struct tab {
 	/* Name that is displayed in the nav bar for the tab */
@@ -55,7 +57,7 @@ static struct screenState *Screen;
 static void clrwin(WINDOW *win);
 static void displayln(char *text);
 static void display_tab(struct tab *tb);
-static void display_msg(char *text);
+static int display_msg(char *text);
 static int count_msg_fill_display(void);
 
 /* Handling tabs */
@@ -107,12 +109,117 @@ int handle_input() /* TODO add check to ensure input is <500 chars */
 void display(char *text, ...)
 { /* Add ability to add to tab based off id */
 	va_list args;
-
+	wlog("In display");
 	va_start(args, text);
 	addmsg(Screen->curtab, text, args);
 	va_end(args);
 
 	display_tab(Screen->curtab);
+}
+
+static void display_tab(struct tab *tb)
+{
+	clr_display();
+	Screen->curtab->y = 0;
+
+	wlog("In display_tab");
+	int msgcount = count_msg_fill_display();
+	int msgindex;
+	for (int i = msgcount; i > 0; i--) { /* index 0 is the final message */
+		msgindex = Screen->curtab->msgnum - i;
+		display_msg(Screen->curtab->msgs[msgindex]);
+	}
+
+	wrefresh(Screen->display);
+}
+
+static int count_msg_fill_display(void)
+{
+	int rows, msgnum, finalindex, msglen, getnewmsg;
+
+	if (Screen->curtab->msgnum == 0) {
+		return -1;
+	}
+
+	rows = 0;
+	msgnum = 0;
+	getnewmsg = 1;
+	/* while there is still space on screen
+	 * && msgnum < Screen->curtab->msgnum */
+	while (rows < (Screen->max_dy - 2)) {
+		if (msgnum == Screen->curtab->msgnum) {
+			wlog("Msgnum: %d", msgnum);
+			return msgnum;
+		}
+
+		/* count num rows each msg takes */
+		if (getnewmsg) {
+			finalindex = Screen->curtab->msgnum - 1;
+			msglen = strlen(Screen->curtab->msgs[finalindex
+								- msgnum]);
+			getnewmsg = 0;
+		}
+
+		msglen -= (DISPLAY_WIDTH); /* -2 for border */
+
+		/* increment only if the screen can hold the whole message */
+		if (msglen <= 0) {
+			msgnum++;
+			getnewmsg = 1;
+		}
+
+		/* each iteration occupies a row */
+		rows++;
+	}
+
+	wlog("Msgnum: %d", msgnum);
+	return msgnum;
+}
+
+static int display_msg(char *text)
+{
+	int rv;
+	rv = 0;
+
+	char buf[DISPLAY_WIDTH - 1];
+	int j = 0, empty = 1;
+	for (int i = 0; i < strlen(text); i++) {
+		if (text[i] == '\n') {
+			wlog("Return exit of display_msg");
+			buf[j] = '\0';
+			displayln(buf);
+			j = 0;
+			rv++;
+			empty = 1;
+			continue;
+		}
+
+		if (i != 0 && i % (DISPLAY_WIDTH - 1) == 0) {
+			buf[j] = text[i];
+			buf[j + 1] = '\0';
+			wlog("Normal exit of display_msg strlen: %d",
+								strlen(buf));
+			displayln(buf);
+			j = 0;
+			empty = 1;
+		}
+
+		wlog("Char: %c", text[i]);
+		buf[j] = text[i];
+		j++; /* This way incrementation is skipped on continue */
+		empty = 0;
+	}
+	if (!empty) {
+		buf[j] = '\0';
+		displayln(buf);
+	}
+
+	return rv;
+}
+
+static void displayln(char *text)
+{
+	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", text);
 }
 
 void size_add_to_tab(int index, char *text, int size, ...)
@@ -146,101 +253,6 @@ void add_to_default(char *text, ...)
 	va_start(args, text);
 	addmsg(Screen->tabs[0], text, args);
 	va_end(args);
-}
-
-static void display_tab(struct tab *tb)
-{
-	clr_display();
-	Screen->curtab->y = 0;
-
-	int msgcount = count_msg_fill_display();
-	int msgindex;
-	for (int i = msgcount; i > 0; i--) { /* index 0 is the final message */
-		msgindex = Screen->curtab->msgnum - i;
-		display_msg(Screen->curtab->msgs[msgindex]);
-	}
-
-	wrefresh(Screen->display);
-}
-
-static int count_msg_fill_display(void)
-{
-	int rows, msgnum, finalindex, msglen, getnewmsg;
-
-	if (Screen->curtab->msgnum == 0) {
-		return -1;
-	}
-
-	rows = 0;
-	msgnum = 0;
-	getnewmsg = 1;
-	/* while there is still space on screen
-	 * && msgnum < Screen->curtab->msgnum */
-	while (rows < (Screen->max_dy - 2)) {
-		if (msgnum == Screen->curtab->msgnum) {
-			return msgnum;
-		}
-
-		/* count num rows each msg takes */
-		if (getnewmsg) {
-			finalindex = Screen->curtab->msgnum - 1;
-			msglen = strlen(Screen->curtab->msgs[finalindex
-								- msgnum]);
-			getnewmsg = 0;
-		}
-
-		msglen -= (Screen->max_dx - 2); /* -2 for border */
-
-		/* increment only if the screen can hold the whole message */
-		if (msglen <= 0) {
-			msgnum++;
-			getnewmsg = 1;
-		}
-
-		/* each iteration occupies a row */
-		rows++;
-	}
-
-	return msgnum;
-}
-
-void display_msg(char *text)
-{
-	int lenprinted;
-	int i = 0;
-	char substring[Screen->max_dx - 2];
-
-	lenprinted = (Screen->max_dx - 2);
-	while(lenprinted == (Screen->max_dx - 2)) {
-		strncpy(substring, text + i, sizeof(substring));
-		substring[Screen->max_dx - 2] = '\0';
-
-		displayln(substring);
-
-		/* If lenprintd is less than the width, that means the msg
-		 * has been fully printed */
-		lenprinted = strlen(substring);
-		i += Screen->max_dx - 2;
-	}
-}
-
-static void displayln(char *text)
-{
-	/* Remove carriage returns */
-	char buf[Screen->max_dx - 2];
-
-	char *src, *dst;
-	src = text;
-	dst = buf;
-	for (; *src != '\0'; src++) {
-		*dst = *src;
-		if (*src != '\n' && *src != '\r') {
-			wlog("'%d' is good", *src);
-			dst++;
-		}
-	}
-	*dst = '\0';
-	mvwprintw(Screen->display, ++Screen->curtab->y, 1, "%s", buf);
 }
 
 void clr_display(void)
@@ -405,6 +417,7 @@ void init_screen(void)
 {
 	wlog("Initializing screen...");
 	// Init functions
+	setlocale(LC_CTYPE, "");
 	initscr();
 	cbreak();
 	keypad(stdscr, TRUE);
