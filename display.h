@@ -2,6 +2,8 @@
 
 #include "config.h"
 
+void show_tabs();
+void add_to_default(char *text, ...);
 int curtab_textable();
 int get_curtab_index(void);
 int handle_input();

@@ -12,6 +12,7 @@ extern const char *CONNTYPES[NUMCONNTYPES];
 
 struct conn;
 
+void switch_conn(int index);
 void delconn(int index);
 struct conn *sfd_get_conn(int sfd);
 int mkconn(enum ConnType type, char *hostname, char *port);

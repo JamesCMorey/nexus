@@ -12,7 +12,7 @@ static const char *COMMANDS[NUMCOMMANDS] = {	"exit", "conn", "disc", "clr",
 
 enum command_code {
 	EXIT, CONN, DISC, CLR,
-	SW, CLOSE
+	SWITCH, CLOSE
 };
 
 static void conn_cmd(char *buffer);
@@ -38,10 +38,18 @@ int handle_command(char *buffer)
 	else if (rv == CLR) {
 		clr_display();
 	}
-	else if (rv == SW) {
+	else if (rv == SWITCH) {
 		/* TODO make this work on values >9 */
 		char *id = strtok(&buffer[strlen(":sw")], " ");
-		switch_tab(id[0] - '0');
+		if (id == NULL) {
+			display("No tab selected");
+			return 0;
+		}
+		switch_tab(atoi(id));
+
+		if (atoi(id) != 0) {
+			switch_conn(atoi(id));
+		}
 	}
 	else if (rv == CLOSE) {
 		int index = get_curtab_index();
@@ -52,6 +60,7 @@ to :exit?");
 		}
 		deltab(index);
 		delconn(index);
+		show_tabs();
 	}
 
 	return 0;

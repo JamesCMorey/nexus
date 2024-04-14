@@ -100,14 +100,15 @@ void switch_conn(int index)
 int send_text(char *text)
 {
 	int rv;
-	char msg[strlen(text) + 2];
+	char msg[strlen(text) + 3];
 	strncpy(msg, text, strlen(text));
-	msg[strlen(text)] = '\n';
-	msg[strlen(text) + 1] = '\0';
+	msg[strlen(text)] = '\r';
+	msg[strlen(text) + 1] = '\n';
+	msg[strlen(text) + 2] = '\0';
 
 	rv = send(Net->curconn->sfd, msg, strlen(msg), 0);
 	if (rv == strlen(msg)) {
-		display("Sent %d bytes to %s", rv, Net->curconn->hostname);
+		add_to_default("Sent %d bytes to %s", rv, Net->curconn->hostname);
 		return 0;
 	}
 
@@ -172,7 +173,7 @@ int mksfd(char *hostname, char *port)
 
 	rv = getaddrinfo(hostname, port, &hints, &res);
 	if (rv) {
-		display("getaddrinfo failed: %s", gai_strerror(rv));
+		add_to_default("getaddrinfo failed: %s", gai_strerror(rv));
 		return -1;
 	}
 
@@ -181,13 +182,13 @@ int mksfd(char *hostname, char *port)
 							itr->ai_protocol);
 
 		if (sfd == -1) {
-			display("Socket creation failed...");
+			add_to_default("Socket creation failed...");
 			continue;
 		}
 
 
 		if (connect(sfd, itr->ai_addr, itr->ai_addrlen) != -1) {
-			display("Connection success.");
+			add_to_default("Connection success.");
 			break; // success
 		}
 
@@ -196,14 +197,14 @@ int mksfd(char *hostname, char *port)
 	}
 
 	if (itr == NULL) {
-		display("Failed to create connection.");
+		add_to_default("Failed to create connection.");
 		return -1;
 	}
 
 	char info[100];
 	getnameinfo(itr->ai_addr, itr->ai_addrlen, info, 100, 0, 0,
 								NI_NUMERICHOST);
-	display("Connected to server at %s.", info);
+	add_to_default("Connected to server at %s.", info);
 
 	freeaddrinfo(res);
 	return sfd;
