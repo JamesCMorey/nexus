@@ -69,14 +69,14 @@ int get_conntype(int index)
 	return c->type;
 }
 
-static struct conn *ind_get_conn(int tab_index)
+static struct conn *ind_get_conn(int index)
 {
 	/* - 1 to convert from tabindex to connindex tabs[1] -> conns[0] */
-	if (Net->conns[tab_index - 1] == NULL) {
+	if (Net->conns[index] == NULL) {
 		return NULL;
 	}
 
-	return Net->conns[tab_index - 1];
+	return Net->conns[index];
 }
 
 /* TODO implement this so when a sfd is ready to be read, the connection and

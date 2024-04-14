@@ -110,14 +110,14 @@ int get_curtab_index(void)
 	return Screen->curtab->index;
 }
 
-static struct tab *ind_get_tab(int tab_index)
+static struct tab *ind_get_tab(int index)
 {
 	/* +1 to convert from tabindex to connindex conns[0] -> tabs[1] */
-	if (Screen->tabs[tab_index] == NULL) {
+	if (Screen->tabs[index] == NULL) {
 		return NULL;
 	}
 
-	return Screen->tabs[tab_index];
+	return Screen->tabs[index];
 }
 
 void set_tab_unread(struct tab *tb)
@@ -258,9 +258,10 @@ static void addmsg(struct tab *tb, char *text, va_list args)
 /* create a tab and set it to Screen->curtab */
 void mktab(char *name, int index)
 {
-	int i = index + 1; /* make up for default at tabs[0] */
+	int i = index; /* make up for default at tabs[0] */
+	struct tab *tb =  malloc(sizeof(struct tab));
 
-	Screen->tabs[i] = malloc(sizeof(struct tab));
+	Screen->tabs[i] = tb;
 	strncpy(Screen->tabs[i]->tabname, name, sizeof(char) * 10);
 	Screen->tabs[i]->index = i;
 	Screen->tabs[i]->y = 0;
@@ -286,10 +287,14 @@ void deltab(int index)
 		for (int i = index - 1; i >= 0; i--) {
 			if (Screen->tabs[i] != NULL) {
 				Screen->maxindex = i;
+				Screen->curtab = Screen->tabs[i];
+				switch_tab(i);
+				break;
 			}
 		}
 	}
 	free(Screen->tabs[index]);
+	Screen->tabs[index] = NULL;
 }
 
 static void show_tabs()

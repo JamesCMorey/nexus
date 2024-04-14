@@ -45,11 +45,13 @@ int handle_command(char *buffer)
 	}
 	else if (rv == CLOSE) {
 		int index = get_curtab_index();
-		display("Removing index %d", index);
+		if (index == 0) {
+			display("Cannot close the default tab... Did you mean \
+to :exit?");
+			return 0;
+		}
 		deltab(index);
-		display("Curtab deleted", NULL);
 		delconn(index);
-		display("Conn deleted", NULL);
 	}
 
 	return 0;
