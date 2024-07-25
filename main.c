@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <sys/select.h>
 #include <errno.h>
@@ -10,7 +11,7 @@
 
 int main(int argc, char *argv[])
 {
-	init_log("z");
+	init_log("z.log");
 	init_net();
 	init_screen();
 
@@ -47,5 +48,6 @@ int main(int argc, char *argv[])
 	stop_screen();
 	stop_net();
 	stop_log();
+	system("rm z.log");
 	return 0;
 }

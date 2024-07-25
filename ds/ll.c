@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#include "../log.h"
 #include "ll.h"
 #include "short_types.h"
 
@@ -53,9 +54,10 @@ void ll_add(linkedlist *l, void *entry) {
 	l->head->next->prev = tmp;
 	l->head->next = tmp;
 
-	l->point = tmp; // update point so its always at first elem
+	l->point = tmp; // update point so its at first elem
 
 	l->length++;
+	assert(is_ll(l));
 }
 
 /* frees both node in list and entry in node */
@@ -71,10 +73,13 @@ void ll_del(linkedlist *l, void *k) {
 			if (l->free_entry != NULL)
 				l->free_entry(tmp->entry);
 			free(tmp);
+			l->length--;
+			assert(is_ll(l));
 			return;
 		}
 		tmp = tmp->next;
 	}
+	assert(is_ll(l));
 }
 
 void ll_free(linkedlist *l) {
@@ -105,15 +110,26 @@ void ll_free(linkedlist *l) {
 	free(l);
 }
 
-void *ll_get(linkedlist *l, void *k) {
+ll_node *ll_get_node(linkedlist *l, void *k) {
 	assert(is_ll(l) && k != NULL);
 	ll_node *tmp = l->head->next;
 	while (tmp != l->tail) {
 		if (l->key_equiv(k, l->get_key(tmp->entry))) {
-			return tmp->entry;
+			return tmp;
 		}
 		tmp = tmp->next;
 	}
+	return NULL;
+
+}
+
+void *ll_get(linkedlist *l, void *k) {
+	assert(is_ll(l) && k != NULL);
+	ll_node *tmp = ll_get_node(l, k);
+
+	if (tmp != NULL)
+		return tmp->entry;
+
 	return NULL;
 }
 
@@ -130,27 +146,37 @@ void *ll_get_head(linkedlist *l)  {
 
 /* Functions for manipulating l->point */
 
+void ll_reset_point(linkedlist *l) {
+	l->point = l->head->next;
+}
+void ll_set_point(linkedlist *l, void *k) {
+	wlog("trying to get tab (%d)", *(int*)k);
+
+	l->point = ll_get_node(l, k);
+	l->point == NULL ? wlog("setpoint failed") : wlog("setpoint success");
+}
+
 void *ll_point(linkedlist *l) {
-	assert(is_ll(l) && !ll_empty(l));
+	assert(is_ll(l) && !ll_empty(l) && l->point != NULL);
 	return l->point->entry;
 }
 
-bool ll_point_at_start(linkedlist *l) {
+bool ll_point_at_head(linkedlist *l) {
 	assert(is_ll(l) && !ll_empty(l));
 	return l->point->prev == l->head;
 }
 
-bool ll_point_at_end(linkedlist *l) {
+bool ll_point_at_tail(linkedlist *l) {
 	assert(is_ll(l) && !ll_empty(l));
 	return l->point->next == l->tail;
 }
 
 void ll_next(linkedlist *l) {
-	assert(is_ll(l) && !ll_point_at_end(l));
+	assert(is_ll(l) && !ll_point_at_tail(l));
 	l->point = l->point->next;
 }
 
 void ll_prev(linkedlist *l) {
-	assert(is_ll(l) && !ll_point_at_start(l));
+	assert(is_ll(l) && !ll_point_at_head(l));
 	l->point = l->point->prev;
 }

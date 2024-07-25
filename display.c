@@ -6,6 +6,7 @@
 #include "display.h"
 #include "commands.h"
 #include "log.h"
+#include "ds/ll.h"
 
 #define CLEAR_WIN(win) werase(win); box(win, 0, 0)
 #define REMOVE_LAST_CHAR(arr) arr[strlen(arr) - 1] = '\0'
@@ -16,9 +17,9 @@
 #define DISPLAY_WIDTH Screen->max_dx - 2
 
 struct tab {
+	int index; // used differentiate between tabs
 	/* Name that is displayed in the nav bar for the tab */
 	char tabname[MAX_TABNAME_LEN];
-	int index;
 	int unread:1; /* Flag for unseen activity in tab */
 
 	char msgs[MSGS_PER_TAB][MAX_MSG_LEN];
@@ -42,9 +43,7 @@ struct screenState {
 	int max_dy, max_dx;
 	int darea;
 
-	/* tabs organized with file descriptor such that tabs[sfd]; is the tab
-	 * that is used to display communications to and from that socket. */
-	struct tab *tabs[1024]; // tabs[0] is the default
+	linkedlist_t tabs; // tabs[0] is the default
 	struct tab *curtab;
 	int maxindex;
 	int tabnum;
@@ -65,11 +64,15 @@ static void addmsg(struct tab *tb, char *text, va_list args);
 static void size_addmsg(struct tab *tb, char *text, int size, va_list args);
 static struct tab *ind_get_tab(int tab_index);
 
+struct tab *get_tab(linkedlist_t tabs, int index);
+
 /* ====== INPUT ====== */
 int handle_input() /* TODO add check to ensure input is <500 chars */
 {
 	int rv = 0;
 	char c;
+
+	wlog("beginning to handle input.");
 
 	c = wgetch(Screen->input);
 	strncat(Screen->buffer, &c, 1);
@@ -227,9 +230,9 @@ void size_add_to_tab(int index, char *text, int size, ...)
 	va_list args;
 
 	va_start(args, size);
-	size_addmsg(Screen->tabs[index], text, size, args);
+	size_addmsg(get_tab(Screen->tabs, index), text, size, args);
 	va_end(args);
-	if (Screen->tabs[index] == Screen->curtab) {
+	if (get_tab(Screen->tabs, index) == Screen->curtab) {
 		display_tab(Screen->curtab);
 	}
 }
@@ -239,9 +242,9 @@ void add_to_tab(int index, char *text, ...)
 	va_list args;
 
 	va_start(args, text);
-	addmsg(Screen->tabs[index], text, args);
+	addmsg(get_tab(Screen->tabs, index), text, args);
 	va_end(args);
-	if (Screen->tabs[index] == Screen->curtab) {
+	if (get_tab(Screen->tabs, index) == Screen->curtab) {
 		display_tab(Screen->curtab);
 	}
 }
@@ -251,7 +254,7 @@ void add_to_default(char *text, ...)
 	va_list args;
 
 	va_start(args, text);
-	addmsg(Screen->tabs[0], text, args);
+	addmsg(get_tab(Screen->tabs, 0), text, args);
 	va_end(args);
 }
 
@@ -273,42 +276,61 @@ void mktab(char *name, int index)
 	int i = index; /* make up for default at tabs[0] */
 	struct tab *tb =  malloc(sizeof(struct tab));
 
-	Screen->tabs[i] = tb;
-	strncpy(Screen->tabs[i]->tabname, name, sizeof(char) * 10);
-	Screen->tabs[i]->index = i;
-	Screen->tabs[i]->y = 0;
-	Screen->tabs[i]->x = 0;
-	Screen->tabs[i]->msgnum = 0;
+	ll_add(Screen->tabs, (void*)tb);
+	strncpy(tb->tabname, name, sizeof(char) * 10);
+	tb->index = i;
+	tb->y = 0;
+	tb->x = 0;
+	tb->msgnum = 0;
 
-	Screen->curtab = Screen->tabs[i];
+	Screen->curtab = tb;
 	if (i > Screen->maxindex) {
 		Screen->maxindex = i;
 	}
 
-	Screen->tabnum++;
+	Screen->tabnum++; // TODO: replace tabnum with ll_len()
 
 	display_tab(Screen->curtab);
+	wlog("display_tab complete.");
 	show_tabs();
+	wlog("show_tabs complete.");
 }
 
 /* In case more things are added to struct tab */
 void deltab(int index)
 {
-	/* -1 so it doesn't just select the tab being deleted */
-	for (int i = index - 1; i >= 0; i--) {
-		if (index == Screen->maxindex && Screen->tabs[i] != NULL) {
-			Screen->maxindex = i;
-		}
+	struct tab *tb = get_tab(Screen->tabs, index);
 
-		if (Screen->tabs[i] != NULL) {
-			Screen->curtab = Screen->tabs[i];
-			switch_tab(i);
-			break;
-		}
+	if (tb == NULL) {
+		display("Cannot close tab (%d) as it doesn't exist.", index);
+		return;
 	}
 
-	free(Screen->tabs[index]);
-	Screen->tabs[index] = NULL;
+	bool last_tab = true;
+	if (!ll_point_at_tail(Screen->tabs)) {
+		ll_next(Screen->tabs);
+		last_tab = false;
+	}
+
+	if (!ll_point_at_head(Screen->tabs)) {
+		ll_prev(Screen->tabs);
+		last_tab = false;
+	}
+
+	if (last_tab) {
+		display("At least one tab must remain open.");
+		return;
+	}
+
+
+	ll_set_point(Screen->tabs, (void *)&index);
+	ll_next(Screen->tabs);
+	ll_del(Screen->tabs, (void *)&index);
+
+	Screen->curtab = (struct tab*)ll_point(Screen->tabs);
+	switch_tab(Screen->curtab->index); // rework this so ll_get runs once
+
+	Screen->maxindex--;
 }
 
 int curtab_textable()
@@ -352,11 +374,11 @@ static void addmsg(struct tab *tb, char *text, va_list args)
 static struct tab *ind_get_tab(int index)
 {
 	/* +1 to convert from tabindex to connindex conns[0] -> tabs[1] */
-	if (Screen->tabs[index] == NULL) {
+	if (get_tab(Screen->tabs, index) == NULL) {
 		return NULL;
 	}
 
-	return Screen->tabs[index];
+	return get_tab(Screen->tabs, index);
 }
 
 int get_curtab_index(void)
@@ -368,51 +390,94 @@ void show_tabs()
 {
 	clrwin(Screen->nav);
 	Screen->ny = 0;
+	wlog("in show_tabs");
+	ll_reset_point(Screen->tabs);
 
-	for (int i = 0; i <= Screen->maxindex; i++) {
-		char *name = Screen->tabs[i]->tabname;
-		if (Screen->tabs[i] == Screen->curtab) {
+	struct tab *tb;
+	for (int i = 0; i < Screen->tabs->length; i++) {
+		tb = (struct tab*)ll_point(Screen->tabs);
+		if (!ll_point_at_tail(Screen->tabs))
+			ll_next(Screen->tabs);
+		char *name = tb->tabname;
+
+		if (tb == NULL) {
+			wlog("WARNING: tab in show_tabs found NULL.");
+			continue;
+		}
+
+		wlog("loopin on: %s", name);
+		if (tb == Screen->curtab) {
 			wattrset(Screen->nav, A_BOLD);
-			mvwprintw(Screen->nav, ++Screen->ny,
-				(Screen->max_nx-strlen(name)-3)/2, "%d :%s",
-						Screen->tabs[i]->index, name);
+
+			mvwprintw(	Screen->nav,
+					++Screen->ny,
+					(Screen->max_nx-strlen(name)-3)/2,
+					"%d :%s",
+					tb->index,
+					name);
+
 			wattroff(Screen->nav, A_BOLD);
 			continue;
 		}
 
-		if (Screen->tabs[i]->unread == 1) {
+		if (tb->unread == 1) {
 			wattrset(Screen->nav, A_ITALIC);
-			mvwprintw(Screen->nav, ++Screen->ny,
-				(Screen->max_nx-strlen(name)-1)/2, "%d %s",
-						Screen->tabs[i]->index, name);
+
+			mvwprintw(	Screen->nav,
+					++Screen->ny,
+					(Screen->max_nx-strlen(name)-1)/2,
+					"%d %s",
+					tb->index,
+					name);
 
 			wattroff(Screen->nav, A_ITALIC);
 			continue;
 		}
 
-		if (Screen->tabs[i] != NULL) {
-			mvwprintw(Screen->nav, ++Screen->ny,
-				(Screen->max_nx-strlen(name)-1)/2, "%d %s",
-						Screen->tabs[i]->index, name);
+		if (tb != NULL) {
+			mvwprintw(	Screen->nav,
+					++Screen->ny,
+					(Screen->max_nx-strlen(name)-1)/2,
+					"%d %s",
+					tb->index,
+					name);
 		}
 	}
+
 	wrefresh(Screen->nav);
 }
 
 void switch_tab(int index)
 {
-	/* Use visual (displayed) index to locate tab to switch to */
-	for (int i = index; i <= Screen->maxindex; i++) {
-		if (Screen->tabs[i]->index == index) {
-			Screen->curtab = Screen->tabs[i];
-			display_tab(Screen->curtab);
-			show_tabs();
-			break;
-		}
+	struct tab *tb = get_tab(Screen->tabs, index);
+	if (tb == NULL) {
+		wlog("cannot switch to nonexistent tab index");
+		return;
 	}
+
+	Screen->curtab = tb;
+	display_tab(Screen->curtab);
+	show_tabs();
 }
 
 /* ====== INIT AND CLEANUP ====== */
+
+void *tab_get_key(void *entry) {
+	return (void*)&(((struct tab*)entry)->index);
+}
+
+bool tab_key_equiv(void *k1, void *k2) {
+	return (*(int*)k1) == (*(int*)k2);
+}
+
+void tab_free_entry(void *entry) {
+	free(entry);
+}
+
+struct tab *get_tab(linkedlist_t tabs, int index) {
+	return ll_get(tabs, (void*)&index);
+}
+
 void init_screen(void)
 {
 	wlog("Initializing screen...");
@@ -427,8 +492,9 @@ void init_screen(void)
 	Screen = malloc(sizeof(struct screenState));
 	Screen->maxindex = 0;
 	Screen->tabnum = 0;
-	getmaxyx(stdscr, Screen->rows, Screen->cols);
+	Screen->tabs = ll_new(&tab_get_key, &tab_key_equiv, NULL);//&tab_free_entry);
 
+	getmaxyx(stdscr, Screen->rows, Screen->cols);
 	int cols = Screen->cols;
 	int rows = Screen->rows;
 
@@ -472,12 +538,7 @@ void stop_screen(void)
 	wlog("Shutting down screen...");
 	delwin(Screen->nav);
 	delwin(Screen->input);
-
-	for (int i = 0; i <= Screen->maxindex; i++) {
-		if (Screen->tabs[i] != NULL) {
-			deltab(i);
-		}
-	}
+	ll_free(Screen->tabs);
 
 	endwin();
 	free(Screen);

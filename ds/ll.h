@@ -6,6 +6,7 @@
 
 typedef void *ll_get_key(void *entry);
 typedef bool ll_key_equiv(void *k1, void *k2);
+// ll_free_entry is optional. If unspecified, NULL, entries will not be freed
 typedef void ll_free_entry(void *entry);
 
 typedef struct ll_node ll_node;
@@ -42,8 +43,9 @@ void *ll_get(linkedlist_t l, void *k);
 void *ll_get_head(linkedlist_t l);
 
 /* Functions for manipulating l->point */
+void ll_set_point(linkedlist_t l, void *k);
 void *ll_point(linkedlist_t l);
-bool ll_point_at_start(linkedlist_t l);
-bool ll_point_at_end(linkedlist_t l);
+bool ll_point_at_head(linkedlist_t l);
+bool ll_point_at_tail(linkedlist_t l);
 void ll_next(linkedlist_t l);
 void ll_prev(linkedlist_t l);

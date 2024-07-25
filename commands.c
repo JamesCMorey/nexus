@@ -5,20 +5,21 @@
 #include "commands.h"
 #include "display.h"
 
-#define NUMCOMMANDS 7
+#define NUMCOMMANDS 8
 
 static const char *COMMANDS[NUMCOMMANDS] = {	"exit", "conn", "disc", "clr",
-						"sw", "close", "send"	};
+						"sw", "close", "send", "mktab"};
 
 enum command_code {
 	EXIT, CONN, DISC, CLR,
-	SWITCH, CLOSE, SEND
+	SWITCH, CLOSE, SEND, MKTAB
 };
 
 static void conn_cmd(char *buffer);
 static void switch_cmd(char *buffer);
 static void close_cmd(char *buffer);
 static void send_cmd(char *buffer);
+static void mktab_cmd(char *buffer);
 
 static enum ConnType parse_conntype(char *buffer);
 
@@ -54,12 +55,25 @@ int handle_command(char *buffer)
 	case SEND:
 		send_cmd(buffer);
 		break;
+	case MKTAB:
+		mktab_cmd(buffer);
+		break;
 
 	default:
 		display("Somehow the default case in handle_command was run");
 	}
 
 	return 0;
+}
+
+static void mktab_cmd(char *buffer)
+{
+	static int id = 1;
+	char *name = strtok(&buffer[strlen(":mktab")], " ");
+
+	wlog("making tab");
+	mktab(name, id++);
+	wlog("tab created");
 }
 
 static void send_cmd(char *buffer)
@@ -88,7 +102,9 @@ static void close_cmd(char *buffer)
 		display("Cannot close default... Did you mean to :exit?");
 		return;
 	}
+	wlog("deleting tab");
 	deltab(index);
+	wlog("tab deleted");
 	delconn(index);
 	show_tabs();
 }
@@ -113,7 +129,9 @@ static void conn_cmd(char *buffer)
 		index = mkconn(protocol, hostname, port);
 	}
 
+	wlog("connection established, making tab");
 	mktab(hostname, index);
+	wlog("tab created");
 }
 
 static enum ConnType parse_conntype(char *buffer)
